@@ -59,6 +59,7 @@ FanMode fanMode = FAN_MODE_AUTO;
   };\
   Serial.print("\n    ]");
 
+
 class Fan {
   public:
   String name;
@@ -102,11 +103,16 @@ class Fan {
     bool bTurnOff = false;
 
     switch ( fanMode ) {
-      case FAN_MODE_ON: bTurnOn = true; break;
-      case FAN_MODE_OFF: bTurnOff = true; break;
+      case FAN_MODE_ON: 
+        bTurnOn = true;
+        break;
+      case FAN_MODE_OFF: 
+        bTurnOff = true; 
+        break;
       case FAN_MODE_AUTO: 
         bTurnOn = temp >= onTemp;
         bTurnOff = temp < offTemp;
+        break;
     }
 
     int relayPinVal = digitalRead(relayPin);
@@ -147,20 +153,22 @@ class TempSensor {
   int sensorPin;
 
   float beta; //3950.0,  3435.0 
-  float balanceResistance, roomTempResistance;
+  float balanceResistance, roomTempResistance, roomTempKelvin;
   
   typedef float(TempSensor::*SampleMethod)(void);
   
-  TempSensor(String _name,
-             int _sensorPin, 
-             float _beta = 3950, 
-             float _balanceResistance = 9999.0, 
-             float _roomTempResistance = 10000.0):
-    name(_name),
-    sensorPin(_sensorPin),
-    beta(_beta),
-    balanceResistance(_balanceResistance),
-    roomTempResistance(_roomTempResistance)
+  TempSensor(String name,
+             int sensorPin, 
+             float beta = 3950, 
+             float balanceResistance = 9999.0, 
+             float roomTempResistance = 10000.0,
+             float roomTempKelvin = 298.15):
+    name(name),
+    sensorPin(sensorPin),
+    beta(beta),
+    balanceResistance(balanceResistance),
+    roomTempResistance(roomTempResistance),
+    roomTempKelvin(roomTempKelvin)
   {
   }
 
@@ -176,23 +184,20 @@ class TempSensor {
     return readSampled(&TempSensor::readBetaCalculatedTemp);
   }
 
-  float readSampled(SampleMethod sampleMethod){
-    const unsigned char SAMPLE_NUMBER = 10;
+  float readSampled(SampleMethod sampleMethod, int sampleCnt = 10){
     float adcSamplesSum = 0;
-    for (int i = 0; i < SAMPLE_NUMBER; i++) {
+    for (int i = 0; i < sampleCnt; i++) {
       adcSamplesSum += (this->*sampleMethod)();
       delay(25);
     }
-    return adcSamplesSum/SAMPLE_NUMBER;
+    return adcSamplesSum/sampleCnt;
   }
 
   float readBetaCalculatedTemp() {
-    const float ROOM_TEMP = 298.15;
-
     int pinVoltage = analogRead(sensorPin);
     float rThermistor = balanceResistance * ( (1023.0 / pinVoltage) - 1);
-    float tKelvin = (beta * ROOM_TEMP) / 
-            (beta + (ROOM_TEMP * log(rThermistor / roomTempResistance)));
+    float tKelvin = (beta * roomTempKelvin) / 
+            (beta + (roomTempKelvin * log(rThermistor / roomTempResistance)));
 
     float tCelsius = tKelvin - 273.15;
     float tFahrenheit = (tCelsius * 9.0)/ 5.0 + 32.0;
@@ -235,7 +240,7 @@ class DhtTempSensor : public TempSensor {
 
   virtual float readHumidity()
   {
-    return dht.readHumidity();  // result may be up to 2 seconds old and take 250 ms to read
+    return dht.readHumidity();
   }
   
   virtual float readTemp()
@@ -334,12 +339,13 @@ class Device {
   }
 };
 
+
 class DeviceConfig {
   public:
   int index;
   Device* pDevice;
 
-  // persistant fields (up 5 fans)
+  // persistent fields (up 5 fans)
   float fanOnTemps[5];
   float fanOffTemps[5];
 
@@ -386,7 +392,7 @@ class DeviceConfig {
 // instead of "normally open".  This should run fans when usb power or arduino board is down
 //
 Fan exhaustFan("Exhaust",3,90,85,HIGH); 
-Fan oscillatingFan("Oscillating",2,115,100,HIGH);
+Fan oscillatingFan("Oscillating",5,115,100,HIGH);
 
 DhtTempSensor benchTempSensor("DHT",7);
 TempSensor tempSensor1("Thermistor1",0);
