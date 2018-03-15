@@ -115,7 +115,7 @@ class Fan {
         break;
     }
 
-    int relayPinVal = digitalRead(relayPin);
+    int relayPinVal = bitRead(PORTD,relayPin);
     bool bRelayOn = (relayPinVal == onValue);
     
     if ( bRelayOn && bTurnOff ) {
@@ -136,7 +136,7 @@ class Fan {
     Serial.print(", ");
     Serial.print(JNUMBER(offTemp));
     Serial.print(", ");
-    int relayValue = digitalRead(relayPin);
+    int relayValue = bitRead(PORTD,relayPin);
     Serial.print(JNUMBER(relayValue));
     Serial.print(", ");
     bool on = relayValue == onValue;
@@ -474,14 +474,17 @@ void setup() {
 void loop() {
   
   static unsigned int loopCnt = 0;
+
+  bool bSerialAvailable = Serial.available();
   
-  if ( loopCnt++ % 10 == 0 ) {
+  if ( bSerialAvailable || loopCnt++ % 10 == 0 ) {
     for( int i = 0; devices[i] != NULL; i++ ){
-      devices[i]->update();    
+      devices[i]->update();
+      loopCnt = 1;    
     }
   }
   
-  if ( Serial.available() ) {
+  if ( bSerialAvailable ) {
     #ifdef DEBUG
     Serial.println("#  Reading serial port...");
     #endif
