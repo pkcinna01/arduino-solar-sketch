@@ -7,7 +7,13 @@ queries so the state of the fans and temperature sensors can be monitored and di
 and Grafana.  The USB interface lets monitoring alerts and external programs control the fans or let this Arduino
 program control them.
 
+#### TODO
+1. Support measuring battery bank DC power usage (requires a shunt on battery bank).
+2. Provide Arduino circuit diagram   
+
 ## USB Command Examples
+
+See [arduino-solar-client](https://github.com/pkcinna01/arduino-solar-client) for example of sendind data over USB.
 
 List state of each device including the temp sensors and fans.  This can be used for monitoring and alerts.
 ```
@@ -30,14 +36,7 @@ SET_FAN_THRESHOLDS,Bench,*,90,85,PERSIST
 
 ## Motivation
 
-This project manages fans for cooling several epever solar charge controllers in an off grid system.  Future enhancements
-are planned for measuring battery bank power usage after installing some shunts.
-
-Feel free to use this code as needed.  I plan to include misc supporting files and projects such
-as the grafana project which also shows EPEver controller stats.  Because there are so many
-moving parts I may try to bundle everything in a Docker project... prometheus installation,
-epever data extraction for prometheus, scripts to setup the controllers, electronics hooked up
-to arduino and fans, etc...
+Used to efficiently cool several solar charge controllers in an off grid system.
 
 
 ## Installation
