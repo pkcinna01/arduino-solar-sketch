@@ -25,6 +25,8 @@
 #include <DHT.h>
 #include <EEPROM.h>
 #include <string.h>
+#include <Wire.h>
+#include <Adafruit_ADS1015.h>
 
 using namespace std;
 
@@ -35,7 +37,7 @@ using namespace std;
 // Change this version if code changes impact data structures in EEPROM.
 // Warning: Version change will reset EEPROM data to defaults
 //
-#define VERSION "SOLAR-1.0.0.0"
+#define VERSION "SOLAR-1.1.0.0"
 
 typedef unsigned char FanMode;
 
@@ -46,12 +48,11 @@ FanMode fanMode = FAN_MODE_AUTO;
 //#define DEBUG
 //#define VERBOSE
 
-#define JSTRING(s) String("\"") + #s + "\": \"" + s + "\""
-#define JNUMBER(n) String("\"") + #n + "\": " + n
-#define JBOOLEAN(b) String("\"") + #b + "\": " + (b?"true":"false")
-#define JKEY(k) String("\"") + #k + "\": "
-
-#define JPTRARRAY(arr) Serial.print(String("\"") + #arr + "\": [\n    ");\
+#define JPRINT_STRING(s) {Serial.print("\""); Serial.print(F(#s)); Serial.print("\": \""); Serial.print(s); Serial.print("\"");}
+#define JPRINT_NUMBER(n) {Serial.print("\""); Serial.print(F(#n)); Serial.print("\": "); Serial.print(n);}
+#define JPRINT_BOOLEAN(b) {Serial.print("\""); Serial.print(F(#b)); Serial.print("\": "); Serial.print(b?"true":"false");}
+#define JPRINT_KEY(k) {Serial.print("\""); Serial.print(F(#k)); Serial.print("\": ");}
+#define JPRINT_ARRAY(arr) Serial.print("\""); Serial.print(F(#arr)); Serial.print("\": [\n    ");\
   for( int i = 0; arr[i] != NULL; i++ ){\
     if ( i != 0 )\
       Serial.print(",\n    ");\
@@ -60,25 +61,28 @@ FanMode fanMode = FAN_MODE_AUTO;
   Serial.print("\n    ]");
 
 
-class Fan {
+class Fan 
+{
   public:
-  String name;
+  const char* const name;
   float onTemp;
   float offTemp;
   int relayPin;
   bool onValue = HIGH; // some relays are on when signal is set low/false instead of high/true
 
-  static void printFanMode(FanMode mode) {
+  static void printFanMode(FanMode mode) 
+  {
     String fanModeText = fanMode == FAN_MODE_AUTO ? "AUTO" 
                    : fanMode == FAN_MODE_ON ? "ON" 
                    : fanMode == FAN_MODE_OFF ? "OFF" 
                    : "INVALID";
     Serial.print("  "); 
-    Serial.print( JNUMBER(fanMode) + ", " );
-    Serial.print( JSTRING(fanModeText) );
+    JPRINT_NUMBER(fanMode);
+    Serial.print(", ");
+    JPRINT_STRING(fanModeText);
   }
   
-  Fan(String name, int relayPin, float onTemp = 125, float offTemp = 115, bool onValue = HIGH) :
+  Fan(const char* const name, int relayPin, float onTemp = 125, float offTemp = 115, bool onValue = HIGH) :
     name(name),
     relayPin(relayPin),
     onTemp(onTemp),
@@ -92,8 +96,8 @@ class Fan {
     pinMode(relayPin,OUTPUT);
     digitalWrite(relayPin, !onValue);
     #ifdef DEBUG
-    Serial.print( "#'" ); Serial.print(name); Serial.print("' fan (relayPin="); 
-    Serial.print(relayPin); Serial.println(") mode set to OUTPUT");
+    Serial.print( "#'" ); Serial.print(name); Serial.print(F("' fan (relayPin="));
+    Serial.print(relayPin); Serial.println(F(") mode set to OUTPUT"));
     #endif
   }
 
@@ -128,28 +132,29 @@ class Fan {
   virtual void print()
   {
     Serial.print("  { ");
-    Serial.print(JSTRING(name));
+    JPRINT_STRING(name);
     Serial.print(", ");
-    Serial.print(JNUMBER(relayPin));
+    JPRINT_NUMBER(relayPin);
     Serial.print(", ");
-    Serial.print(JNUMBER(onTemp));
+    JPRINT_NUMBER(onTemp);
     Serial.print(", ");
-    Serial.print(JNUMBER(offTemp));
+    JPRINT_NUMBER(offTemp);
     Serial.print(", ");
     int relayValue = bitRead(PORTD,relayPin);
-    Serial.print(JNUMBER(relayValue));
+    JPRINT_NUMBER(relayValue);
     Serial.print(", ");
     bool on = relayValue == onValue;
-    Serial.print(JBOOLEAN(on));
+    JPRINT_BOOLEAN(on);
     Serial.print(" }");
   }
 };
 
 
 
-class TempSensor {
+class TempSensor 
+{
   public:
-  String name;
+  const char* const name;
   int sensorPin;
 
   float beta; //3950.0,  3435.0 
@@ -157,7 +162,7 @@ class TempSensor {
   
   typedef float(TempSensor::*SampleMethod)(void);
   
-  TempSensor(String name,
+  TempSensor(const char* const name,
              int sensorPin, 
              float beta = 3950, 
              float balanceResistance = 9999.0, 
@@ -176,24 +181,28 @@ class TempSensor {
   {
     pinMode(sensorPin,INPUT);
     #ifdef DEBUG
-    Serial.print("#  '"); Serial.print(name); Serial.print("' thermistor analog input pin:"); Serial.println(sensorPin);
+    Serial.print(F("#  '")); Serial.print(name); Serial.print(F("' thermistor analog input pin:")); Serial.println(sensorPin);
     #endif
   }
   
-  virtual float readTemp() {  
+  virtual float readTemp() 
+  {  
     return readSampled(&TempSensor::readBetaCalculatedTemp);
   }
 
-  float readSampled(SampleMethod sampleMethod, int sampleCnt = 10){
+  float readSampled(SampleMethod sampleMethod, int sampleCnt = 10)
+  {
     float adcSamplesSum = 0;
-    for (int i = 0; i < sampleCnt; i++) {
+    for (int i = 0; i < sampleCnt; i++)
+    {
       adcSamplesSum += (this->*sampleMethod)();
       delay(25);
     }
     return adcSamplesSum/sampleCnt;
   }
 
-  float readBetaCalculatedTemp() {
+  float readBetaCalculatedTemp()
+  {
     int pinVoltage = analogRead(sensorPin);
     float rThermistor = balanceResistance * ( (1023.0 / pinVoltage) - 1);
     float tKelvin = (beta * roomTempKelvin) / 
@@ -208,22 +217,23 @@ class TempSensor {
   {
     float temp = readTemp();
     Serial.print("  { ");
-    Serial.print(JSTRING(name));
+    JPRINT_STRING(name);
     Serial.print(", ");
-    Serial.print(JNUMBER(temp));
+    JPRINT_NUMBER(temp);
     Serial.print(" }");
   }
 };
 
 
 
-class DhtTempSensor : public TempSensor {
+class DhtTempSensor : public TempSensor
+{
 
   public:
   int dhtType;
   DHT dht;
   
-  DhtTempSensor(String _name, int _sensorPin, int _dhtType = DHT22) : 
+  DhtTempSensor(const char* const _name, int _sensorPin, int _dhtType = DHT22) : 
     TempSensor(_name,_sensorPin),
     dhtType(_dhtType),
     dht(_sensorPin,_dhtType)
@@ -234,9 +244,9 @@ class DhtTempSensor : public TempSensor {
   {
     dht.begin();
     #ifdef DEBUG
-    Serial.print("#DHT"); Serial.print(dhtType); Serial.print(" started on digital pin "); Serial.println(sensorPin);
+    Serial.print(F("#DHT")); Serial.print(dhtType); Serial.print(F(" started on digital pin ")); Serial.println(sensorPin);
     #endif
-  }  
+  }
 
   virtual float readHumidity()
   {
@@ -252,30 +262,34 @@ class DhtTempSensor : public TempSensor {
   {
     float temp = readTemp();
     float humidity = readHumidity();
-    //float heatIndex = dht.computeHeatIndex(temp, humidity, FAHRENHEIT);
+    float heatIndex = dht.computeHeatIndex(temp, humidity, FAHRENHEIT);
     Serial.print("  { ");
-    Serial.print(JSTRING(name));
+    JPRINT_STRING(name);
     Serial.print(", ");
-    Serial.print(JNUMBER(temp));
+    JPRINT_NUMBER(temp);
     Serial.print(", ");
-    Serial.print(JNUMBER(humidity));
-    //Serial.print(", ");
-    //Serial.print(JNUMBER(heatIndex));
+    JPRINT_NUMBER(humidity);
+    Serial.print(", ");
+    JPRINT_NUMBER(heatIndex);
     Serial.print(" }");
   }
 };
 
 
-class Device {
+class Device 
+{
   public:
-  String name;
+  const char* const name;
   Fan** fans;
   TempSensor** tempSensors;
 
-  static void printDevices(Device** devices) {
-    Serial.print( "  " + JKEY(devices) );
+  static void printDevices(Device** devices)
+  {
+    Serial.print("  ");
+    JPRINT_KEY(devices);
     Serial.print("[");
-    for( int i = 0; devices[i] != NULL; i++ ){
+    for( int i = 0; devices[i] != NULL; i++ )
+    {
       if ( i != 0 ) {
         Serial.print(",");
       }
@@ -285,42 +299,46 @@ class Device {
     Serial.print("]");
   }
   
-  Device(String _name, Fan** _fans, TempSensor** _tempSensors) :
-    name(_name),
-    fans(_fans),
-    tempSensors(_tempSensors)
+  Device(const char* const name, Fan** fans, TempSensor** tempSensors) :
+    name(name),
+    fans(fans),
+    tempSensors(tempSensors)
   {
   }
 
   virtual void setup()
   {
     #ifdef DEBUG
-    Serial.print("#  "); Serial.print(name); Serial.println(" setup() begin...");
+    Serial.print("#  "); Serial.print(name); Serial.println(F(" setup() begin..."));
     #endif
-    
-    for( int i = 0; tempSensors[i] != NULL; i++ ) {
+
+    for( int i = 0; tempSensors[i] != NULL; i++ )
+    {
       tempSensors[i]->setup();
-    }
-    for( int i = 0; fans[i] != NULL; i++ ) {
+    }    
+    for( int i = 0; fans[i] != NULL; i++ )
+    {
       fans[i]->setup();
     }
-    
+
     #ifdef DEBUG
-    Serial.print("#  "); Serial.print(name); Serial.println(" setup() complete.");
+    Serial.print("#  "); Serial.print(name); Serial.println(F(" setup() complete."));
     #endif
   }
 
   virtual void update() 
   {
     float maxTemp = 0;
-    for( int i = 0; tempSensors[i] != NULL; i++ ) {
+    for( int i = 0; tempSensors[i] != NULL; i++ )
+    {
       float temp = tempSensors[i]->readTemp();
       if ( temp > maxTemp ) {
         maxTemp = temp;
       }
     }
     // enable/disable all fans for this device based on highest temp sensor value
-    for( int i = 0; fans[i] != NULL; i++ ) {
+    for( int i = 0; fans[i] != NULL; i++ )
+    {
       fans[i]->update(maxTemp);
     }
   }
@@ -328,11 +346,11 @@ class Device {
   virtual void print()
   {
     Serial.print("  { ");
-    Serial.print(JSTRING(name));
+    JPRINT_STRING(name);
     Serial.print(",\n    ");
-    JPTRARRAY(tempSensors);
+    JPRINT_ARRAY(tempSensors);
     Serial.print(",\n    ");
-    JPTRARRAY(fans);
+    JPRINT_ARRAY(fans);
     Serial.println();
     Serial.print("  ");
     Serial.print("}");
@@ -340,7 +358,63 @@ class Device {
 };
 
 
-class DeviceConfig {
+//TODO - support multiple shunts/ADS1115's
+class Shunt
+{
+  
+  public:  
+  Adafruit_ADS1115 ads;
+  const char* const name;
+
+  static void printShunts(Shunt** shunts)
+  {
+    Serial.print("  ");
+    JPRINT_KEY(shunts);
+    Serial.print("[");
+    for( int i = 0; shunts[i] != NULL; i++ )
+    {
+      if ( i != 0 ) {
+        Serial.print(",");
+      }
+      Serial.println();
+      Serial.print("  ");
+      shunts[i]->print();    
+    }
+    Serial.println();
+    Serial.print("  ]");
+  }
+  
+  Shunt(const char* const name)
+    : name(name)
+  {
+  }
+  
+  virtual void setup()
+  {
+    ads.setGain(GAIN_SIXTEEN);
+    ads.begin();
+  }
+  
+  virtual void print()
+  {
+    int shuntADC = ads.readADC_Differential_0_1();  
+    float shuntAmps = ((float) shuntADC * 256.0) / 32768.0; // 100mv shunt
+    shuntAmps *= 1.333; // 75mv shunt
+    float shuntWatts = .075 * shuntAmps;
+    Serial.print("  { ");
+    JPRINT_STRING(name);
+    Serial.print(", ");
+    JPRINT_NUMBER(shuntAmps);
+    Serial.print(", ");
+    JPRINT_NUMBER(shuntWatts);
+    Serial.print(" }");    
+  }
+
+};
+
+
+class DeviceConfig
+{
   public:
   int index;
   Device* pDevice;
@@ -355,7 +429,8 @@ class DeviceConfig {
   {
   }
 
-  void load() {
+  void load()
+  {
     int addr = sizeof(VERSION) + sizeof(fanMode) + index * (sizeof(fanOnTemps)+sizeof(fanOffTemps));
     EEPROM.get( addr, fanOnTemps );
     EEPROM.get( addr + sizeof(fanOnTemps), fanOffTemps );
@@ -366,11 +441,13 @@ class DeviceConfig {
     }
   }
 
-  void save() {
+  void save()
+  {
     int addr = sizeof(VERSION) + sizeof(fanMode) + index * (sizeof(fanOnTemps)+sizeof(fanOffTemps));
     memset(fanOnTemps, 0, sizeof(fanOnTemps));
     memset(fanOffTemps, 0, sizeof(fanOffTemps));
-    for ( int i = 0; pDevice->fans[i] != NULL; i++ ) {
+    for ( int i = 0; pDevice->fans[i] != NULL; i++ )
+    {
       Fan* pFan = pDevice->fans[i];
       fanOnTemps[i] = pFan->onTemp;
       fanOffTemps[i] = pFan->offTemp;
@@ -406,9 +483,10 @@ Fan* chargeCtrlsFans[] = { &oscillatingFan, NULL };
 
 Device bench("Bench", benchFans, benchTempSensors );
 Device controllers("Controllers", chargeCtrlsFans, chargeCtrlsTempSensors );
-
 Device* devices[] = { &bench, &controllers, NULL };
 
+Shunt batteryBankShunt("Main 12V Battery Bank");
+Shunt* shunts[] = { &batteryBankShunt, NULL };
 
 /////////////////////////////////////////////////////////////////////////
 //
@@ -424,44 +502,43 @@ void setup() {
   EEPROM.get(0,version);
 
   #ifdef VERBOSE
-  Serial.print("#  Loaded version:");
+  Serial.print(F("#  Loaded version:"));
   Serial.println(version);
   #endif
-  
-  if ( String(version) != VERSION ) {
-    #ifdef VERBOSE
-    Serial.println("#  EEPROM version not valid.  saving default config.");
-    #endif
+
+  if ( !strcmp(VERSION,version) )
+  {
     EEPROM.put(0,VERSION);
     EEPROM.put(sizeof(VERSION), fanMode);
     for( int i = 0; devices[i] != NULL; i++ ){
       DeviceConfig deviceConfig(i,devices[i]);
       deviceConfig.save();
     }
-  } else {
+  }
+  else
+  {
     #ifdef VERBOSE
-    Serial.println("#  Loading EEPROM data.");
+    Serial.println(F("#  Loading EEPROM data."));
     #endif
     EEPROM.get(sizeof(VERSION), fanMode);
-    for( int i = 0; devices[i] != NULL; i++ ){
+    for( int i = 0; devices[i] != NULL; i++ )
+    {
       DeviceConfig deviceConfig(i,devices[i]);
       deviceConfig.load();
     }
   }
-  
-  for( int i = 0; devices[i] != NULL; i++ ){
+
+  for( int i = 0; shunts[i] != NULL; i++ )
+  {
+    shunts[i]->setup();
+  }
+
+  for( int i = 0; devices[i] != NULL; i++ )
+  {
     devices[i]->setup();
   }
   
   delay(1000);
-  /*
-  Serial.println("{");
-  Fan::printFanMode(fanMode);
-  Serial.println(",");
-  Device::printDevices(devices);
-  Serial.println();
-  Serial.println("}");
-  */
 }
 
 
@@ -471,23 +548,23 @@ void setup() {
 //
 /////////////////////////////////////////////////////////////////////////
 
-void loop() {
-  
+void loop() 
+{
   static unsigned int loopCnt = 0;
 
   bool bSerialAvailable = Serial.available();
   
-  if ( bSerialAvailable || loopCnt++ % 10 == 0 ) {
-    for( int i = 0; devices[i] != NULL; i++ ){
+  if ( bSerialAvailable || loopCnt++ % 10 == 0 )
+  {
+    for( int i = 0; devices[i] != NULL; i++ )
+    {
       devices[i]->update();
       loopCnt = 1;    
     }
   }
   
-  if ( bSerialAvailable ) {
-    #ifdef DEBUG
-    Serial.println("#  Reading serial port...");
-    #endif
+  if ( bSerialAvailable )
+  {
     char commandBuff[256];   
     memset(commandBuff,0,256);
     int bytesRead = Serial.readBytesUntil('\n', commandBuff, 256);
@@ -495,56 +572,69 @@ void loop() {
     if ( bytesRead > 0 ) {
 
       #ifdef VERBOSE
-      Serial.print("#  Received: "); Serial.print(commandBuff); Serial.println("'");
+      Serial.print(F("#  Received: ")); Serial.print(commandBuff); Serial.println("'");
       #endif
 
-      char *pszCmd = strtok(commandBuff, ", ");
+      char *pszCmd = strtok(commandBuff, ", \r\n");
 
       int respCode = 0;
       String respMsg = "OK";
 
-      Serial.println("#BEGIN#");
+      Serial.println(F("#BEGIN#"));
       Serial.println( "{" );
-  
-      if ( !strcmp(pszCmd,"GET") ) {
-
+      
+      if ( !strcmp_P(pszCmd,PSTR("GET")) )
+      {       
         Fan::printFanMode(fanMode);                           
         Serial.println(",");
+
+        Shunt::printShunts(shunts);        
+        Serial.println(",");
+        
         Device::printDevices(devices);
         Serial.println(",");
-
-      } else if ( !strcmp(pszCmd,"SET_FAN_MODE") ) {
-
-        String strMode(strtok(NULL,", "));
-        if ( strMode == "ON" ) {
+      } 
+      else if ( !strcmp_P(pszCmd,PSTR("SET_FAN_MODE")) )
+      {
+        const char* pszFanMode = strtok(NULL,", ");
+        if ( !strcmp("ON",pszFanMode) ) {
           fanMode = FAN_MODE_ON;
-          respMsg = "OK - fanMode=ON";
-        } else if ( strMode == "OFF" ) {
+          respMsg = F("OK - fanMode=ON");
+        } else if ( !strcmp("OFF",pszFanMode) ) {
           fanMode = FAN_MODE_OFF;
-          respMsg = "OK fanMode=OFF";
-        } else if ( strMode == "AUTO" ) {
+          respMsg = F("OK - fanMode=OFF");
+        } else if ( !strcmp("AUTO",pszFanMode) ) {
           fanMode = FAN_MODE_AUTO;
-          respMsg = "OK fanMode=AUTO";
+          respMsg = F("OK - fanMode=AUTO");
         } else {
           respCode = 102;
-          respMsg = "Expected ON|OFF|AUTO";          
+          respMsg = F("Expected ON|OFF|AUTO for fan mode. Received: ");
+          respMsg += pszFanMode;
         }
 
-        if ( respCode == 0 ) {
-          String strSave(strtok(NULL,", "));
-          if ( strSave == "PERSIST" ) {
+        if ( respCode == 0 )
+        {
+          const char* pszSaveMode = strtok(NULL,", ");
+          
+          if ( !strcmp_P(pszSaveMode,PSTR("PERSIST")) )
+          {
             EEPROM.put( sizeof(VERSION), fanMode);
             respMsg += " saved to EEPROM";
-          } else if ( strSave == "TRANSIENT" ) {
-            EEPROM.put( sizeof(VERSION), FAN_MODE_AUTO);
-          } else {
+          } 
+          else if ( !strcmp_P(pszSaveMode,PSTR("TRANSIENT")) )
+          {
+            // No action for transient
+          } 
+          else 
+          {
             respCode = 103;
-            respMsg = "Expected PERSIST|TRANSIENT: " + strSave;
+            respMsg = F("Expected PERSIST|TRANSIENT but found: ");
+            respMsg += pszSaveMode;
           }
         }
-        
-      } else if ( !strcmp(pszCmd,"SET_FAN_THRESHOLDS") ) {
-
+      } 
+      else if ( !strcmp_P(pszCmd,PSTR("SET_FAN_THRESHOLDS")) )
+      {
         //example: SET_FAN_THRESHOLDS,*,Osc,98.0,78.0,PERSIST
         
         const char* pszDeviceFilter = strtok(NULL,",");
@@ -553,50 +643,87 @@ void loop() {
         //TODO - no way in arduino to validate float parsing since sscanf fails on floats :-( 
         float onTemp = atof(strtok(NULL,", "));
         float offTemp = atof(strtok(NULL,", "));
-        String updatedFans = "";
-        
-        for( int i = 0; devices[i] != NULL; i++ ) {
-          if ( !strcmp(pszDeviceFilter,"*") || strstr(devices[i]->name.c_str(),pszDeviceFilter) ) {
-            for( int j = 0; devices[i]->fans[j] != NULL; j++ ) {
-              Fan* pFan = devices[i]->fans[j];
-              if ( !strcmp(pszFanFilter,"*") || strstr(pFan->name.c_str(),pszFanFilter) ) {
-                pFan->onTemp = onTemp;
-                pFan->offTemp = offTemp;
-                if ( updatedFans.length() ) {
-                  updatedFans += ",";
+
+        if ( onTemp <= offTemp ) 
+        {
+            respMsg = F("Fan ON temperature must be greater than OFF temp.");            
+            respCode = 201;          
+        }
+        else
+        {
+          String updatedFans = "";
+          
+          for( int i = 0; devices[i] != NULL; i++ )
+          {
+            if ( !strcmp(pszDeviceFilter,"*") || strstr(devices[i]->name,pszDeviceFilter) )
+            {
+              for( int j = 0; devices[i]->fans[j] != NULL; j++ )
+              {
+                Fan* pFan = devices[i]->fans[j];
+                if ( !strcmp(pszFanFilter,"*") || strstr(pFan->name,pszFanFilter) )
+                {
+                  pFan->onTemp = onTemp;
+                  pFan->offTemp = offTemp;
+                  if ( updatedFans.length() )
+                  {
+                    updatedFans += ",";
+                  }
+                  updatedFans += pFan->name;
                 }
-                updatedFans += pFan->name;
               }
             }
           }
-        }
-
-        if (updatedFans.length()){
-          respMsg += " Updated fans: " + updatedFans;
-          String saveMode = strtok(NULL,", ");
-          if ( saveMode == "PERSIST" ) {
-            for( int i = 0; devices[i] != NULL; i++ ){
-              DeviceConfig deviceConfig(i,devices[i]);
-              deviceConfig.save();
+  
+          if (updatedFans.length())
+          {
+            respMsg += F(" Set fan thresholds for: ");
+            respMsg += updatedFans;
+            const char* pszSaveMode = strtok(NULL,", ");
+            
+            if ( !strcmp_P(pszSaveMode,PSTR("PERSIST")) )
+            {
+              for( int i = 0; devices[i] != NULL; i++ )
+              {
+                DeviceConfig deviceConfig(i,devices[i]);
+                deviceConfig.save();
+              }
+            } 
+            else if ( !strcmp_P(pszSaveMode,PSTR("TRANSIENT")) )
+            {
+              // No action for transient
             }
-          } else if ( saveMode != "TRANSIENT" ) {
-            respMsg = "Invalid persistance mode: " + saveMode;
-            respCode = 202;
+            else
+            {
+              respMsg = F("Expected PERSIST|TRANSIENT but found: ");
+              respMsg += pszSaveMode;
+              respCode = 203;
+            }
+          } 
+          else
+          {
+            respMsg = F("No fans matched device and fan name filters");
+            respCode = 204;
           }
-        } else {
-          respMsg = "No fans matched filters";
-          respCode = 203;
         }
-      } else {
-          respCode = -1;
-          respMsg = String("Unsupported command: '") + pszCmd + "'";
+      }
+      else
+      {
+        respMsg = F("Expected GET|SET_FAN_MODE|SET_FAN_THRESHOLDS: ");
+        respMsg += pszCmd;
+        respCode = -1;
       }
   
-      Serial.println("  " + JNUMBER(respCode) + ",");
-      Serial.println("  " + JSTRING(respMsg));
+      Serial.print("  ");
+      JPRINT_NUMBER(respCode);
+      Serial.println(",");
+      Serial.print("  ");
+      JPRINT_STRING(respMsg);
+      Serial.println();
       Serial.println("}");
-      Serial.println("#END#");
+
+      Serial.println(F("#END#"));
     }
+    
   } 
   delay(500);
 
