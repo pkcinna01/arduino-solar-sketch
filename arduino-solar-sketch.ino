@@ -66,9 +66,6 @@ FanMode fanMode = FAN_MODE_AUTO;
   Serial.print("\n    ]");
 
 
-typedef float(*SampleMethod)(void);
-//template<typename SampleObject> typedef float(SampleObject::*SampleMethod)(void);
-  
 template<typename ObjectPtr,typename MethodPtr> float sample(ObjectPtr obj, MethodPtr method, unsigned int cnt = 5, unsigned int intervalMs = 50) 
 {
   float sum = 0;
