@@ -19,8 +19,13 @@
 // "SET_FAN_MODE,AUTO,TRANSIENT" will give control back to arduino temp sensors.
 // Prometheus gets arduino metrics using the Java "arduino-client" in same
 // parent folder as this project.
-//
+// 
 //////////////////////////////////////////////////////////////////////////
+
+#ifndef ARDUINO // HACK for intellisense in VSCODE
+  #define ARDUINO 10805  
+  #include <iom328p.h>
+#endif
 
 #include <DHT.h>
 #include <EEPROM.h>
@@ -150,7 +155,6 @@ class Fan
 };
 
 
-
 class TempSensor 
 {
   public:
@@ -233,10 +237,10 @@ class DhtTempSensor : public TempSensor
   int dhtType;
   DHT dht;
   
-  DhtTempSensor(const char* const _name, int _sensorPin, int _dhtType = DHT22) : 
-    TempSensor(_name,_sensorPin),
-    dhtType(_dhtType),
-    dht(_sensorPin,_dhtType)
+  DhtTempSensor(const char* const name, int sensorPin, int dhtType = DHT22) :
+    TempSensor(name,sensorPin),
+    dhtType(dhtType),
+    dht(sensorPin,dhtType)
   {    
   }
 
@@ -358,58 +362,234 @@ class Device
 };
 
 
-//TODO - support multiple shunts/ADS1115's
 class Shunt
 {
   
   public:  
-  Adafruit_ADS1115 ads;
-  const char* const name;
 
-  static void printShunts(Shunt** shunts)
-  {
-    Serial.print("  ");
-    JPRINT_KEY(shunts);
-    Serial.print("[");
-    for( int i = 0; shunts[i] != NULL; i++ )
-    {
-      if ( i != 0 ) {
-        Serial.print(",");
-      }
-      Serial.println();
-      Serial.print("  ");
-      shunts[i]->print();    
-    }
-    Serial.println();
-    Serial.print("  ]");
-  }
-  
-  Shunt(const char* const name)
-    : name(name)
+  typedef unsigned short RatedAmps;
+  static const RatedAmps RATED_100_AMPS = 100, 
+                         RATED_200_AMPS = 200;
+
+  typedef unsigned char MilliVoltDrop;
+  static const MilliVoltDrop MILLIVOLTS_50 = 50, 
+                             MILLIVOLTS_75 = 75, 
+                             MILLIVOLTS_100 = 100;
+
+  typedef unsigned char Channel;
+  static const Channel CHANNEL_A0 = 0, 
+                       CHANNEL_A1 = 1, 
+                       CHANNEL_A2 = 2, 
+                       CHANNEL_A3 = 3,
+                       DIFFERENTIAL_0_1 = 4, 
+                       DIFFERENTIAL_2_3 = 5;
+
+  const int16_t INVALID_RATED_MILLIVOLTS = 65532, INVALID_CHANNEL = 65533;
+
+  Adafruit_ADS1115 ads;
+  RatedAmps ratedAmps;
+  MilliVoltDrop ratedMilliVolts;
+  Channel channel;
+
+  float amps; // cache so it can be shared with voltage meter to compute power
+
+  Shunt(RatedAmps ratedAmps = RATED_200_AMPS,
+        MilliVoltDrop ratedMilliVolts = MILLIVOLTS_75,
+        Channel channel = DIFFERENTIAL_0_1 ) :
+      ratedAmps(ratedAmps),
+      ratedMilliVolts(ratedMilliVolts),
+      channel(channel)
   {
   }
   
   virtual void setup()
   {
+    // ads.setGain(GAIN_TWOTHIRDS);  // 2/3x gain +/- 6.144V  1 bit = 0.1875mV (default)
+    // ads.setGain(GAIN_ONE);        // 1x gain   +/- 4.096V  1 bit = 0.125mV
+    // ads.setGain(GAIN_TWO);        // 2x gain   +/- 2.048V  1 bit = 0.0625mV
+    // ads.setGain(GAIN_FOUR);       // 4x gain   +/- 1.024V  1 bit = 0.03125mV
+    // ads.setGain(GAIN_EIGHT);      // 8x gain   +/- 0.512V  1 bit = 0.015625mV
+    // ads.setGain(GAIN_SIXTEEN);    // 16x gain  +/- 0.256V  1 bit = 0.0078125mV
+
     ads.setGain(GAIN_SIXTEEN);
     ads.begin();
   }
   
-  virtual void print()
+  virtual int16_t readADC()
   {
-    int shuntADC = ads.readADC_Differential_0_1();  
-    float shuntAmps = ((float) shuntADC * 256.0) / 32768.0; // 100mv shunt
-    shuntAmps *= 1.333; // 75mv shunt
-    float shuntWatts = .075 * shuntAmps;
-    Serial.print("  { ");
-    JPRINT_STRING(name);
-    Serial.print(", ");
-    JPRINT_NUMBER(shuntAmps);
-    Serial.print(", ");
-    JPRINT_NUMBER(shuntWatts);
-    Serial.print(" }");    
+    int16_t adc;
+    if ( channel >= CHANNEL_A0 && channel <= CHANNEL_A3 )
+    {
+      adc = ads.readADC_SingleEnded(channel);
+    }
+    else if ( channel == DIFFERENTIAL_0_1 ) 
+    { 
+      adc = ads.readADC_Differential_0_1();  
+    } 
+    else if ( channel == DIFFERENTIAL_2_3 ) 
+    {
+      adc = ads.readADC_Differential_2_3();
+    }
+    else
+    {
+      #ifdef DEBUG
+      Serial.print(F("Shunt::readADC() invalid ADS1115 channel: ")); Serial.println(channel);
+      #endif
+      adc = INVALID_CHANNEL;
+    }
+    return adc;
   }
 
+  float readAmps() 
+  {
+    amps = 0;
+    int16_t shuntADC = readADC();
+
+    if ( shuntADC != -1 && shuntADC != INVALID_CHANNEL ) 
+    {
+      // 16x gain  +/- 0.256V  1 bit = 0.125mV  0.0078125mV
+      float multiplier = ((float) ratedAmps) / ratedMilliVolts;
+      float voltageDrop = ((float) shuntADC * 256.0) / 32768.0;
+      amps = multiplier * voltageDrop;
+    }
+    return amps;
+  }
+
+  virtual void print()
+  {
+    readAmps();
+
+    Serial.print("{ ");
+    JPRINT_NUMBER(amps);
+    Serial.print(", ");
+    JPRINT_NUMBER(ratedAmps);
+    Serial.print(", ");
+    JPRINT_NUMBER(ratedMilliVolts);
+    Serial.print(" }");
+  }
+
+};
+
+
+class Voltmeter
+{
+  public:
+  
+  typedef float (Voltmeter::*SampleMethod)(void);
+  
+  int analogPin;
+  float r1;
+  float r2; // measured from analog pin to ground
+  float vcc;
+  float volts = 0; // cached for use with power meter
+  
+  Voltmeter(int analogPin, float r1 = 1000000.0, float r2 = 100000.0, float vcc = 5.0) : 
+    analogPin(analogPin),
+    r1(r1),
+    r2(r2),
+    vcc(vcc) 
+  {    
+  }
+
+  virtual float readSampledVoltage() 
+  {  
+    return readSampled(&Voltmeter::readVoltage);
+  }
+
+  float readSampled(SampleMethod sampleMethod, int sampleCnt = 5)
+  {
+    // first read is always high for some reason so ignore it
+    (this->*sampleMethod)();
+    
+    float voltageSum = 0;
+    for (int i = 0; i < sampleCnt; i++)
+    {
+      voltageSum += (this->*sampleMethod)();
+      delay(50);
+    }
+    volts = voltageSum/sampleCnt;
+    return volts;
+  }
+
+  float readVoltage()
+  {
+    float adc = analogRead(analogPin);
+    float dividerWeight = ((float)(r1 + r2))/r2;
+    return dividerWeight * adc * vcc / 1024.0;
+  }
+
+  virtual void print()
+  {
+    readSampledVoltage();
+    float assignedVcc = vcc;
+    float assignedR1 = r1;
+    float assignedR2 = r2;
+    Serial.print("{ ");
+    JPRINT_NUMBER(volts);
+    Serial.print(", ");
+    JPRINT_NUMBER(analogPin);
+    Serial.print(", ");
+    JPRINT_NUMBER(assignedVcc);
+    Serial.print(", ");
+    JPRINT_NUMBER(assignedR1);
+    Serial.print(", ");
+    JPRINT_NUMBER(assignedR2);
+    Serial.print(" }");
+  }
+};
+
+
+class PowerMeter
+{
+  public:
+  const char* const name;
+  Voltmeter* voltmeter;
+  Shunt* shunt;
+
+  static void printPowerMeters(PowerMeter** power)
+  {
+    Serial.print("  ");
+    JPRINT_KEY(powerMeters);
+    Serial.print("[");
+    for( int i = 0; power[i] != NULL; i++ )
+    {
+      if ( i != 0 ) {
+        Serial.print(",");
+      }
+      Serial.println();
+      power[i]->print();    
+    }
+    Serial.print("]");
+  }
+
+  PowerMeter(const char* const name, Voltmeter* voltmeter, Shunt* shunt):
+    name(name),
+    voltmeter(voltmeter),
+    shunt(shunt)
+  {      
+  }
+
+  virtual void setup()
+  {
+    shunt->setup();
+  }
+
+  virtual void print()
+  {
+    Serial.print("  {\n    ");
+    JPRINT_STRING(name);
+    Serial.print(",\n    ");
+    JPRINT_KEY(voltage);
+    voltmeter->print();
+    Serial.print(",\n    ");
+    JPRINT_KEY(current);
+    shunt->print();
+    Serial.print(",\n    ");
+    // voltmeter volts and shunt amps values will be cached after print calls above
+    float watts = voltmeter->volts * shunt->amps;
+    JPRINT_NUMBER(watts);
+    Serial.print("\n  }");
+  }
 };
 
 
@@ -469,7 +649,7 @@ class DeviceConfig
 // instead of "normally open".  This should run fans when usb power or arduino board is down
 //
 Fan exhaustFan("Exhaust",3,90,85,HIGH); 
-Fan oscillatingFan("Oscillating",5,115,100,HIGH);
+Fan oscillatingFan("Oscillating",2,115,100,HIGH);
 
 DhtTempSensor benchTempSensor("DHT",7);
 TempSensor tempSensor1("Thermistor1",0);
@@ -485,8 +665,13 @@ Device bench("Bench", benchFans, benchTempSensors );
 Device controllers("Controllers", chargeCtrlsFans, chargeCtrlsTempSensors );
 Device* devices[] = { &bench, &controllers, NULL };
 
-Shunt batteryBankShunt("Main 12V Battery Bank");
-Shunt* shunts[] = { &batteryBankShunt, NULL };
+// need to recalibrate if voltage supply changes (USB hub)
+Voltmeter batteryBankVoltmeter(3, 1010000.0, 100500.0, 4.78);
+Shunt batteryBankShunt;
+
+
+PowerMeter batteryBankPower("Main 12V Battery Bank",&batteryBankVoltmeter,&batteryBankShunt);
+PowerMeter* powerMeters[] = { &batteryBankPower, NULL };
 
 /////////////////////////////////////////////////////////////////////////
 //
@@ -528,9 +713,9 @@ void setup() {
     }
   }
 
-  for( int i = 0; shunts[i] != NULL; i++ )
+  for( int i = 0; powerMeters[i] != NULL; i++ )
   {
-    shunts[i]->setup();
+    powerMeters[i]->setup();
   }
 
   for( int i = 0; devices[i] != NULL; i++ )
@@ -588,7 +773,7 @@ void loop()
         Fan::printFanMode(fanMode);                           
         Serial.println(",");
 
-        Shunt::printShunts(shunts);        
+        PowerMeter::printPowerMeters(powerMeters);
         Serial.println(",");
         
         Device::printDevices(devices);
@@ -728,7 +913,4 @@ void loop()
   delay(500);
 
  }
-
-
-
 
