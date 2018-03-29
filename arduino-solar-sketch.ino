@@ -475,8 +475,6 @@ class Voltmeter
 {
   public:
   
-  typedef float (Voltmeter::*SampleMethod)(void);
-  
   int analogPin;
   float r1;
   float r2; // measured from analog pin to ground
@@ -491,20 +489,15 @@ class Voltmeter
   {    
   }
 
-  virtual float readSampledVoltage() 
+  virtual float readSampledVoltage(int sampleCnt = 5) 
   {  
-    return readSampled(&Voltmeter::readVoltage);
-  }
-
-  float readSampled(SampleMethod sampleMethod, int sampleCnt = 5)
-  {
     // first read is always high for some reason so ignore it
-    (this->*sampleMethod)();
+    readVoltage();
     
     float voltageSum = 0;
     for (int i = 0; i < sampleCnt; i++)
     {
-      voltageSum += (this->*sampleMethod)();
+      voltageSum += readVoltage();
       delay(50);
     }
     volts = voltageSum/sampleCnt;
