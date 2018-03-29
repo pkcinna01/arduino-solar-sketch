@@ -6,15 +6,15 @@
 // fans for a device are turned on/off based on the max temperature probe
 // reading of that device.
 //
-// This current setup is controlling 2 fans
-// 1) exhaust fan on enclosure wall controlled with a single DHT temp sensor
+// This current setup controls 2 fans and monitors power usage
+// 1) Ventilation fan on enclosure wall controlled with a single DHT temp sensor
 // 2) An oscillating fan cooling 2 epsolar charge controllers where each has 
 //    a dedicated thermistor temp sensor. 
 //
 // The serial bus support allows info about fans and temperatures to be
 // monitored with Prometheus and displayed in Grafana.  The EPSolar
 // charge controller metrics from monitoring can override the arduino fan
-// regulation, A Grafana or Prometheus alert will trigger a 
+// regulation, A Grafana or Prometheus alert can trigger a 
 // "SET_FAN_MODE,0N,TRANSIENT" command to temporarily take control.
 // "SET_FAN_MODE,AUTO,TRANSIENT" will give control back to arduino temp sensors.
 // Prometheus gets arduino metrics using the Java "arduino-client" in same
@@ -42,7 +42,7 @@ using namespace std;
 // Change this version if code changes impact data structures in EEPROM.
 // Warning: Version change will reset EEPROM data to defaults
 //
-#define VERSION "SOLAR-1.1.0.0"
+#define VERSION "SOLAR-1.4.0.1"
 
 typedef unsigned char FanMode;
 
@@ -65,6 +65,26 @@ FanMode fanMode = FAN_MODE_AUTO;
   };\
   Serial.print("\n    ]");
 
+
+typedef float(*SampleMethod)(void);
+//template<typename SampleObject> typedef float(SampleObject::*SampleMethod)(void);
+  
+template<typename ObjectPtr,typename MethodPtr> float sample(ObjectPtr obj, MethodPtr method, unsigned int cnt = 5, unsigned int intervalMs = 50) 
+{
+  float sum = 0;
+  for (int i = 0; i < cnt; i++)
+  {
+    sum += (obj->*method)();
+    if ( cnt > 1 ) 
+    {
+      delay(intervalMs);
+    }
+  }
+  return sum/cnt;
+}
+
+String gLastErrorMsg;
+String gLastInfoMsg;
 
 class Fan 
 {
@@ -163,9 +183,7 @@ class TempSensor
 
   float beta; //3950.0,  3435.0 
   float balanceResistance, roomTempResistance, roomTempKelvin;
-  
-  typedef float(TempSensor::*SampleMethod)(void);
-  
+    
   TempSensor(const char* const name,
              int sensorPin, 
              float beta = 3950, 
@@ -191,19 +209,9 @@ class TempSensor
   
   virtual float readTemp() 
   {  
-    return readSampled(&TempSensor::readBetaCalculatedTemp);
+    return sample(this, &TempSensor::readBetaCalculatedTemp, 10, 25);
   }
 
-  float readSampled(SampleMethod sampleMethod, int sampleCnt = 10)
-  {
-    float adcSamplesSum = 0;
-    for (int i = 0; i < sampleCnt; i++)
-    {
-      adcSamplesSum += (this->*sampleMethod)();
-      delay(25);
-    }
-    return adcSamplesSum/sampleCnt;
-  }
 
   float readBetaCalculatedTemp()
   {
@@ -432,32 +440,47 @@ class Shunt
     }
     else
     {
-      #ifdef DEBUG
-      Serial.print(F("Shunt::readADC() invalid ADS1115 channel: ")); Serial.println(channel);
-      #endif
       adc = INVALID_CHANNEL;
     }
     return adc;
   }
 
+
+  virtual float readAndCacheAmps() 
+  {  
+    // amps used later to compute watts from PowerMeter
+    //amps = sample(this,&Shunt::readAmps);
+    amps = readAmps();
+    return amps;
+  }
+  
   float readAmps() 
   {
-    amps = 0;
     int16_t shuntADC = readADC();
-
-    if ( shuntADC != -1 && shuntADC != INVALID_CHANNEL ) 
+    float rtnAmps = 0;
+    
+    if ( shuntADC == -1 )
+    {
+      gLastErrorMsg = F("Shunt::readAmps() ADS1115 returned -1.  Check connections and pin mappings.");
+    }
+    else if ( shuntADC == INVALID_CHANNEL )
+    {
+      gLastErrorMsg = F("Shunt::readAmps() invalid ADS1115 channel: ");
+      gLastErrorMsg += channel;
+    }
+    else 
     {
       // 16x gain  +/- 0.256V  1 bit = 0.125mV  0.0078125mV
       float multiplier = ((float) ratedAmps) / ratedMilliVolts;
       float voltageDrop = ((float) shuntADC * 256.0) / 32768.0;
-      amps = multiplier * voltageDrop;
+      rtnAmps = multiplier * voltageDrop;
     }
-    return amps;
+    return rtnAmps;
   }
 
   virtual void print()
   {
-    readAmps();
+    readAndCacheAmps();
 
     Serial.print("{ ");
     JPRINT_NUMBER(amps);
@@ -489,18 +512,13 @@ class Voltmeter
   {    
   }
 
-  virtual float readSampledVoltage(int sampleCnt = 5) 
+  virtual float readAndCacheVoltage() 
   {  
-    // first read is always high for some reason so ignore it
+    // first read consistantly seems too high so ignore it
     readVoltage();
     
-    float voltageSum = 0;
-    for (int i = 0; i < sampleCnt; i++)
-    {
-      voltageSum += readVoltage();
-      delay(50);
-    }
-    volts = voltageSum/sampleCnt;
+    // volts used later to compute watts from PowerMeter
+    volts = sample(this,&Voltmeter::readVoltage, 10, 50);
     return volts;
   }
 
@@ -513,7 +531,7 @@ class Voltmeter
 
   virtual void print()
   {
-    readSampledVoltage();
+    readAndCacheVoltage();
     float assignedVcc = vcc;
     float assignedR1 = r1;
     float assignedR2 = r2;
@@ -593,9 +611,14 @@ class DeviceConfig
   Device* pDevice;
 
   // persistent fields (up 5 fans)
-  float fanOnTemps[5];
-  float fanOffTemps[5];
+  static const unsigned int MAX_FAN_CNT = 4;
 
+  float fanOnTemps[MAX_FAN_CNT];
+  float fanOffTemps[MAX_FAN_CNT];
+
+  static size_t getFirstElementAddr() { return sizeof(VERSION) + sizeof(fanMode); }
+  static size_t getElementSize() { return MAX_FAN_CNT*2*sizeof(float); }
+  
   DeviceConfig(int index, Device* pDevice) :
     index(index),
     pDevice(pDevice)
@@ -604,7 +627,7 @@ class DeviceConfig
 
   void load()
   {
-    int addr = sizeof(VERSION) + sizeof(fanMode) + index * (sizeof(fanOnTemps)+sizeof(fanOffTemps));
+    int addr = DeviceConfig::getFirstElementAddr() + index * DeviceConfig::getElementSize();
     EEPROM.get( addr, fanOnTemps );
     EEPROM.get( addr + sizeof(fanOnTemps), fanOffTemps );
     for ( int i = 0; pDevice->fans[i] != NULL; i++ ) {
@@ -616,7 +639,7 @@ class DeviceConfig
 
   void save()
   {
-    int addr = sizeof(VERSION) + sizeof(fanMode) + index * (sizeof(fanOnTemps)+sizeof(fanOffTemps));
+    int addr = DeviceConfig::getFirstElementAddr() + index * DeviceConfig::getElementSize();
     memset(fanOnTemps, 0, sizeof(fanOnTemps));
     memset(fanOffTemps, 0, sizeof(fanOffTemps));
     for ( int i = 0; pDevice->fans[i] != NULL; i++ )
@@ -627,6 +650,46 @@ class DeviceConfig
     }
     EEPROM.put( addr, fanOnTemps );
     EEPROM.put( addr + sizeof(fanOnTemps), fanOffTemps );
+  }
+  
+};
+
+class PowerMeterConfig
+{
+  public:
+
+  static size_t getElementSize() { return sizeof(float); }
+  
+  static size_t computeFirstElementAddr( Device** devices ) {
+      int deviceCnt = 0;
+      for( int i = 0; devices[i] != NULL; i++ ){ deviceCnt++; }
+      return DeviceConfig::getFirstElementAddr() + deviceCnt * DeviceConfig::getElementSize();
+  }
+  
+  int index;
+  int firstPowerMeterAddr;
+  PowerMeter* pPowerMeter;
+
+  float voltmeterVcc;
+
+  PowerMeterConfig(int firstPowerMeterAddr, int index, PowerMeter* pPowerMeter) :
+    firstPowerMeterAddr(firstPowerMeterAddr),
+    index(index),
+    pPowerMeter(pPowerMeter)
+  {
+  }
+
+  void load()
+  {
+    int addr = firstPowerMeterAddr + index * PowerMeterConfig::getElementSize();    
+    EEPROM.get( addr, voltmeterVcc );
+    pPowerMeter->voltmeter->vcc = voltmeterVcc;
+  }
+
+  void save()
+  {
+    int addr = firstPowerMeterAddr + index * PowerMeterConfig::getElementSize();
+    EEPROM.put( addr, pPowerMeter->voltmeter->vcc );
   }
   
 };
@@ -658,8 +721,8 @@ Device bench("Bench", benchFans, benchTempSensors );
 Device controllers("Controllers", chargeCtrlsFans, chargeCtrlsTempSensors );
 Device* devices[] = { &bench, &controllers, NULL };
 
-// need to recalibrate if voltage supply changes (USB hub)
-Voltmeter batteryBankVoltmeter(3, 1010000.0, 100500.0, 4.78);
+// VCC calibrated for Samsung Chronos laptop and USB hub (with display off)
+Voltmeter batteryBankVoltmeter(3, 1010000.0, 100500.0, 4.77);
 Shunt batteryBankShunt;
 
 
@@ -684,25 +747,43 @@ void setup() {
   Serial.println(version);
   #endif
 
-  if ( !strcmp(VERSION,version) )
+  int powerMetersAddr = PowerMeterConfig::computeFirstElementAddr(devices);
+
+  if ( strcmp(VERSION,version) )
   {
+    gLastInfoMsg = F("Version changed.  Clearing EEPROM and saving defaults.  Old: ");
+    gLastInfoMsg += version;
+    gLastInfoMsg += " New: ";
+    gLastInfoMsg += VERSION;
     EEPROM.put(0,VERSION);
     EEPROM.put(sizeof(VERSION), fanMode);
     for( int i = 0; devices[i] != NULL; i++ ){
-      DeviceConfig deviceConfig(i,devices[i]);
-      deviceConfig.save();
+      DeviceConfig config(i,devices[i]);
+      config.save();
     }
+    for( int i = 0; powerMeters[i] != NULL; i++ ){
+      PowerMeterConfig config(powerMetersAddr,i,powerMeters[i]);
+      config.save();
+    }    
   }
   else
   {
+    gLastInfoMsg = F("Loading EEPROM data for version ");
+    gLastInfoMsg += version;
+    
     #ifdef VERBOSE
     Serial.println(F("#  Loading EEPROM data."));
     #endif
     EEPROM.get(sizeof(VERSION), fanMode);
     for( int i = 0; devices[i] != NULL; i++ )
     {
-      DeviceConfig deviceConfig(i,devices[i]);
-      deviceConfig.load();
+      DeviceConfig config(i,devices[i]);
+      config.load();
+    }
+    for( int i = 0; powerMeters[i] != NULL; i++ )
+    {
+      PowerMeterConfig config(powerMetersAddr,i,powerMeters[i]);
+      config.load();
     }
   }
 
@@ -746,13 +827,13 @@ void loop()
     char commandBuff[256];   
     memset(commandBuff,0,256);
     int bytesRead = Serial.readBytesUntil('\n', commandBuff, 256);
-
+    
     if ( bytesRead > 0 ) {
 
       #ifdef VERBOSE
       Serial.print(F("#  Received: ")); Serial.print(commandBuff); Serial.println("'");
       #endif
-
+      
       char *pszCmd = strtok(commandBuff, ", \r\n");
 
       int respCode = 0;
@@ -884,14 +965,90 @@ void loop()
           }
         }
       }
+      else if ( !strcmp_P(pszCmd,PSTR("SET_POWER_METER_VCC")) )
+      {
+        //example: SET_POWER_METER_VCC,*,4.88,PERSIST
+
+        const char* pszMeterNameFilter = strtok(NULL,",");
+        
+        float vcc = atof(strtok(NULL,", "));
+
+        String updatedMeters = "";
+        
+        for( int i = 0; powerMeters[i] != NULL; i++ )
+        {
+          if ( !strcmp(pszMeterNameFilter,"*") || strstr(powerMeters[i]->name,pszMeterNameFilter) )
+          {
+            powerMeters[i]->voltmeter->vcc = vcc;
+            if ( updatedMeters.length() )
+            {
+              updatedMeters += ",";
+            }
+            updatedMeters += powerMeters[i]->name;
+
+          }
+        }
+  
+        if (updatedMeters.length())
+        {
+          respMsg += F(" Set vcc for: ");
+          respMsg += updatedMeters;
+          const char* pszSaveMode = strtok(NULL,", ");
+          
+          if ( !strcmp_P(pszSaveMode,PSTR("PERSIST")) )
+          {
+            size_t baseAddr = PowerMeterConfig::computeFirstElementAddr(devices);
+            
+            for( int i = 0; powerMeters[i] != NULL; i++ )
+            {
+              PowerMeterConfig config(baseAddr,i,powerMeters[i]);
+              config.save();
+            }
+          } 
+          else if ( !strcmp_P(pszSaveMode,PSTR("TRANSIENT")) )
+          {
+            // No action for transient
+          }
+          else
+          {
+            respMsg = F("Expected PERSIST|TRANSIENT but found: ");
+            respMsg += pszSaveMode;
+            respCode = 303;
+          }
+        } 
+        else
+        {
+          respMsg = F("No power meter name matched filter: ");
+          respMsg += pszMeterNameFilter;
+          respCode = 304;
+        }
+      }      
       else
       {
-        respMsg = F("Expected GET|SET_FAN_MODE|SET_FAN_THRESHOLDS: ");
+        respMsg = F("Expected GET|SET_FAN_MODE|SET_FAN_THRESHOLDS|SET_POWER_METER_VCC: ");
         respMsg += pszCmd;
         respCode = -1;
       }
-  
+      
       Serial.print("  ");
+      if ( gLastErrorMsg.length() ) 
+      {
+        if ( respCode == 0 ) 
+        {
+          respCode = -1;
+          respMsg = gLastErrorMsg;
+        }
+        else
+        {
+          respMsg += " | ";
+          respMsg += gLastErrorMsg;
+        }
+      }
+      else if ( gLastInfoMsg.length() )
+      {
+        respMsg += " | ";
+        respMsg += gLastInfoMsg;
+      }
       JPRINT_NUMBER(respCode);
       Serial.println(",");
       Serial.print("  ");
@@ -900,8 +1057,11 @@ void loop()
       Serial.println("}");
 
       Serial.println(F("#END#"));
+
+      // clear last error AFTER response sent to save memory
+      gLastErrorMsg = "";    
+      gLastInfoMsg = "";
     }
-    
   } 
   delay(500);
 
