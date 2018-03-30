@@ -7,8 +7,10 @@ queries so the state of the fans and temperature sensors can be monitored and di
 and Grafana.  The USB interface lets monitoring alerts and external programs control the fans or let this Arduino
 program control them.
 
+Available commands:
+`VERSION|GET|SET_FAN_MODE|SET_FAN_THRESHOLDS|SET_POWER_METER_VCC|SET_OUTPUT_FORMAT`
+
 #### TODO
-1. Support measuring battery bank DC power usage (requires a shunt on battery bank).
 2. Provide Arduino circuit diagram   
 
 ## USB Command Examples

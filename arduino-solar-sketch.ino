@@ -33,16 +33,17 @@
 #include <Wire.h>
 #include <Adafruit_ADS1015.h>
 
-using namespace std;
-
-#define VERSION_SIZE 14
+#define VERSION_SIZE 10
 #define FAHRENHEIT true
 
 //
-// Change this version if code changes impact data structures in EEPROM.
-// Warning: Version change will reset EEPROM data to defaults
+// Change version if changes impact data structures in EEPROM.
+// Warning: Version change will reset EEPROM data to defaults unless 
+// only change is in the last number (build)
 //
-#define VERSION "SOLAR-1.4.0.1"
+#define VERSION "SOLAR-1.7"
+#define BUILD_NUMBER 1
+#define BUILD_DATE __DATE__
 
 typedef unsigned char FanMode;
 
@@ -50,652 +51,26 @@ const FanMode FAN_MODE_OFF = 0, FAN_MODE_ON = 0x1, FAN_MODE_AUTO = 0x2;
 
 FanMode fanMode = FAN_MODE_AUTO;
 
-//#define DEBUG
-//#define VERBOSE
+typedef unsigned char OutputFormat;
 
-#define JPRINT_STRING(s) {Serial.print("\""); Serial.print(F(#s)); Serial.print("\": \""); Serial.print(s); Serial.print("\"");}
-#define JPRINT_NUMBER(n) {Serial.print("\""); Serial.print(F(#n)); Serial.print("\": "); Serial.print(n);}
-#define JPRINT_BOOLEAN(b) {Serial.print("\""); Serial.print(F(#b)); Serial.print("\": "); Serial.print(b?"true":"false");}
-#define JPRINT_KEY(k) {Serial.print("\""); Serial.print(F(#k)); Serial.print("\": ");}
-#define JPRINT_ARRAY(arr) Serial.print("\""); Serial.print(F(#arr)); Serial.print("\": [\n    ");\
-  for( int i = 0; arr[i] != NULL; i++ ){\
-    if ( i != 0 )\
-      Serial.print(",\n    ");\
-    arr[i]->print();\
-  };\
-  Serial.print("\n    ]");
+const OutputFormat JSON_COMPACT = 0, JSON_PRETTY = 1;
 
-
-template<typename ObjectPtr,typename MethodPtr> float sample(ObjectPtr obj, MethodPtr method, unsigned int cnt = 5, unsigned int intervalMs = 50) 
-{
-  float sum = 0;
-  for (int i = 0; i < cnt; i++)
-  {
-    sum += (obj->*method)();
-    if ( cnt > 1 ) 
-    {
-      delay(intervalMs);
-    }
-  }
-  return sum/cnt;
-}
+OutputFormat outputFormat = JSON_PRETTY;
 
 String gLastErrorMsg;
 String gLastInfoMsg;
 
-class Fan 
-{
-  public:
-  const char* const name;
-  float onTemp;
-  float offTemp;
-  int relayPin;
-  bool onValue = HIGH; // some relays are on when signal is set low/false instead of high/true
-
-  static void printFanMode(FanMode mode) 
-  {
-    String fanModeText = fanMode == FAN_MODE_AUTO ? "AUTO" 
-                   : fanMode == FAN_MODE_ON ? "ON" 
-                   : fanMode == FAN_MODE_OFF ? "OFF" 
-                   : "INVALID";
-    Serial.print("  "); 
-    JPRINT_NUMBER(fanMode);
-    Serial.print(", ");
-    JPRINT_STRING(fanModeText);
-  }
-  
-  Fan(const char* const name, int relayPin, float onTemp = 125, float offTemp = 115, bool onValue = HIGH) :
-    name(name),
-    relayPin(relayPin),
-    onTemp(onTemp),
-    offTemp(offTemp),
-    onValue(onValue)
-  {     
-  }
-
-  virtual void setup()
-  {
-    pinMode(relayPin,OUTPUT);
-    digitalWrite(relayPin, !onValue);
-    #ifdef DEBUG
-    Serial.print( "#'" ); Serial.print(name); Serial.print(F("' fan (relayPin="));
-    Serial.print(relayPin); Serial.println(F(") mode set to OUTPUT"));
-    #endif
-  }
-
-  virtual void update(float temp)
-  {
-    bool bTurnOn = false;
-    bool bTurnOff = false;
-
-    switch ( fanMode ) {
-      case FAN_MODE_ON: 
-        bTurnOn = true;
-        break;
-      case FAN_MODE_OFF: 
-        bTurnOff = true; 
-        break;
-      case FAN_MODE_AUTO: 
-        bTurnOn = temp >= onTemp;
-        bTurnOff = temp < offTemp;
-        break;
-    }
-
-    int relayPinVal = bitRead(PORTD,relayPin);
-    bool bRelayOn = (relayPinVal == onValue);
-    
-    if ( bRelayOn && bTurnOff ) {
-      digitalWrite(relayPin,!onValue);
-    } else if ( !bRelayOn && bTurnOn ) {
-      digitalWrite(relayPin,onValue);
-    }
-  }
-
-  virtual void print()
-  {
-    Serial.print("  { ");
-    JPRINT_STRING(name);
-    Serial.print(", ");
-    JPRINT_NUMBER(relayPin);
-    Serial.print(", ");
-    JPRINT_NUMBER(onTemp);
-    Serial.print(", ");
-    JPRINT_NUMBER(offTemp);
-    Serial.print(", ");
-    int relayValue = bitRead(PORTD,relayPin);
-    JPRINT_NUMBER(relayValue);
-    Serial.print(", ");
-    bool on = relayValue == onValue;
-    JPRINT_BOOLEAN(on);
-    Serial.print(" }");
-  }
-};
-
-
-class TempSensor 
-{
-  public:
-  const char* const name;
-  int sensorPin;
-
-  float beta; //3950.0,  3435.0 
-  float balanceResistance, roomTempResistance, roomTempKelvin;
-    
-  TempSensor(const char* const name,
-             int sensorPin, 
-             float beta = 3950, 
-             float balanceResistance = 9999.0, 
-             float roomTempResistance = 10000.0,
-             float roomTempKelvin = 298.15):
-    name(name),
-    sensorPin(sensorPin),
-    beta(beta),
-    balanceResistance(balanceResistance),
-    roomTempResistance(roomTempResistance),
-    roomTempKelvin(roomTempKelvin)
-  {
-  }
-
-  virtual void setup()
-  {
-    pinMode(sensorPin,INPUT);
-    #ifdef DEBUG
-    Serial.print(F("#  '")); Serial.print(name); Serial.print(F("' thermistor analog input pin:")); Serial.println(sensorPin);
-    #endif
-  }
-  
-  virtual float readTemp() 
-  {  
-    return sample(this, &TempSensor::readBetaCalculatedTemp, 10, 25);
-  }
-
-
-  float readBetaCalculatedTemp()
-  {
-    int pinVoltage = analogRead(sensorPin);
-    float rThermistor = balanceResistance * ( (1023.0 / pinVoltage) - 1);
-    float tKelvin = (beta * roomTempKelvin) / 
-            (beta + (roomTempKelvin * log(rThermistor / roomTempResistance)));
-
-    float tCelsius = tKelvin - 273.15;
-    float tFahrenheit = (tCelsius * 9.0)/ 5.0 + 32.0;
-    return tFahrenheit;
-  }
-  
-  virtual void print()
-  {
-    float temp = readTemp();
-    Serial.print("  { ");
-    JPRINT_STRING(name);
-    Serial.print(", ");
-    JPRINT_NUMBER(temp);
-    Serial.print(" }");
-  }
-};
-
-
-
-class DhtTempSensor : public TempSensor
-{
-
-  public:
-  int dhtType;
-  DHT dht;
-  
-  DhtTempSensor(const char* const name, int sensorPin, int dhtType = DHT22) :
-    TempSensor(name,sensorPin),
-    dhtType(dhtType),
-    dht(sensorPin,dhtType)
-  {    
-  }
-
-  virtual void setup()
-  {
-    dht.begin();
-    #ifdef DEBUG
-    Serial.print(F("#DHT")); Serial.print(dhtType); Serial.print(F(" started on digital pin ")); Serial.println(sensorPin);
-    #endif
-  }
-
-  virtual float readHumidity()
-  {
-    return dht.readHumidity();
-  }
-  
-  virtual float readTemp()
-  {
-    return dht.readTemperature(FAHRENHEIT);
-  }
-
-  virtual void print()
-  {
-    float temp = readTemp();
-    float humidity = readHumidity();
-    float heatIndex = dht.computeHeatIndex(temp, humidity, FAHRENHEIT);
-    Serial.print("  { ");
-    JPRINT_STRING(name);
-    Serial.print(", ");
-    JPRINT_NUMBER(temp);
-    Serial.print(", ");
-    JPRINT_NUMBER(humidity);
-    Serial.print(", ");
-    JPRINT_NUMBER(heatIndex);
-    Serial.print(" }");
-  }
-};
-
-
-class Device 
-{
-  public:
-  const char* const name;
-  Fan** fans;
-  TempSensor** tempSensors;
-
-  static void printDevices(Device** devices)
-  {
-    Serial.print("  ");
-    JPRINT_KEY(devices);
-    Serial.print("[");
-    for( int i = 0; devices[i] != NULL; i++ )
-    {
-      if ( i != 0 ) {
-        Serial.print(",");
-      }
-      Serial.println();
-      devices[i]->print();    
-    }
-    Serial.print("]");
-  }
-  
-  Device(const char* const name, Fan** fans, TempSensor** tempSensors) :
-    name(name),
-    fans(fans),
-    tempSensors(tempSensors)
-  {
-  }
-
-  virtual void setup()
-  {
-    #ifdef DEBUG
-    Serial.print("#  "); Serial.print(name); Serial.println(F(" setup() begin..."));
-    #endif
-
-    for( int i = 0; tempSensors[i] != NULL; i++ )
-    {
-      tempSensors[i]->setup();
-    }    
-    for( int i = 0; fans[i] != NULL; i++ )
-    {
-      fans[i]->setup();
-    }
-
-    #ifdef DEBUG
-    Serial.print("#  "); Serial.print(name); Serial.println(F(" setup() complete."));
-    #endif
-  }
-
-  virtual void update() 
-  {
-    float maxTemp = 0;
-    for( int i = 0; tempSensors[i] != NULL; i++ )
-    {
-      float temp = tempSensors[i]->readTemp();
-      if ( temp > maxTemp ) {
-        maxTemp = temp;
-      }
-    }
-    // enable/disable all fans for this device based on highest temp sensor value
-    for( int i = 0; fans[i] != NULL; i++ )
-    {
-      fans[i]->update(maxTemp);
-    }
-  }
-
-  virtual void print()
-  {
-    Serial.print("  { ");
-    JPRINT_STRING(name);
-    Serial.print(",\n    ");
-    JPRINT_ARRAY(tempSensors);
-    Serial.print(",\n    ");
-    JPRINT_ARRAY(fans);
-    Serial.println();
-    Serial.print("  ");
-    Serial.print("}");
-  }
-};
-
-
-class Shunt
-{
-  
-  public:  
-
-  typedef unsigned short RatedAmps;
-  static const RatedAmps RATED_100_AMPS = 100, 
-                         RATED_200_AMPS = 200;
-
-  typedef unsigned char MilliVoltDrop;
-  static const MilliVoltDrop MILLIVOLTS_50 = 50, 
-                             MILLIVOLTS_75 = 75, 
-                             MILLIVOLTS_100 = 100;
-
-  typedef unsigned char Channel;
-  static const Channel CHANNEL_A0 = 0, 
-                       CHANNEL_A1 = 1, 
-                       CHANNEL_A2 = 2, 
-                       CHANNEL_A3 = 3,
-                       DIFFERENTIAL_0_1 = 4, 
-                       DIFFERENTIAL_2_3 = 5;
-
-  const int16_t INVALID_RATED_MILLIVOLTS = 65532, INVALID_CHANNEL = 65533;
-
-  Adafruit_ADS1115 ads;
-  RatedAmps ratedAmps;
-  MilliVoltDrop ratedMilliVolts;
-  Channel channel;
-
-  float amps; // cache so it can be shared with voltage meter to compute power
-
-  Shunt(RatedAmps ratedAmps = RATED_200_AMPS,
-        MilliVoltDrop ratedMilliVolts = MILLIVOLTS_75,
-        Channel channel = DIFFERENTIAL_0_1 ) :
-      ratedAmps(ratedAmps),
-      ratedMilliVolts(ratedMilliVolts),
-      channel(channel)
-  {
-  }
-  
-  virtual void setup()
-  {
-    // ads.setGain(GAIN_TWOTHIRDS);  // 2/3x gain +/- 6.144V  1 bit = 0.1875mV (default)
-    // ads.setGain(GAIN_ONE);        // 1x gain   +/- 4.096V  1 bit = 0.125mV
-    // ads.setGain(GAIN_TWO);        // 2x gain   +/- 2.048V  1 bit = 0.0625mV
-    // ads.setGain(GAIN_FOUR);       // 4x gain   +/- 1.024V  1 bit = 0.03125mV
-    // ads.setGain(GAIN_EIGHT);      // 8x gain   +/- 0.512V  1 bit = 0.015625mV
-    // ads.setGain(GAIN_SIXTEEN);    // 16x gain  +/- 0.256V  1 bit = 0.0078125mV
-
-    ads.setGain(GAIN_SIXTEEN);
-    ads.begin();
-  }
-  
-  virtual int16_t readADC()
-  {
-    int16_t adc;
-    if ( channel >= CHANNEL_A0 && channel <= CHANNEL_A3 )
-    {
-      adc = ads.readADC_SingleEnded(channel);
-    }
-    else if ( channel == DIFFERENTIAL_0_1 ) 
-    { 
-      adc = ads.readADC_Differential_0_1();  
-    } 
-    else if ( channel == DIFFERENTIAL_2_3 ) 
-    {
-      adc = ads.readADC_Differential_2_3();
-    }
-    else
-    {
-      adc = INVALID_CHANNEL;
-    }
-    return adc;
-  }
-
-
-  virtual float readAndCacheAmps() 
-  {  
-    // amps used later to compute watts from PowerMeter
-    //amps = sample(this,&Shunt::readAmps);
-    amps = readAmps();
-    return amps;
-  }
-  
-  float readAmps() 
-  {
-    int16_t shuntADC = readADC();
-    float rtnAmps = 0;
-    
-    if ( shuntADC == -1 )
-    {
-      gLastErrorMsg = F("Shunt::readAmps() ADS1115 returned -1.  Check connections and pin mappings.");
-    }
-    else if ( shuntADC == INVALID_CHANNEL )
-    {
-      gLastErrorMsg = F("Shunt::readAmps() invalid ADS1115 channel: ");
-      gLastErrorMsg += channel;
-    }
-    else 
-    {
-      // 16x gain  +/- 0.256V  1 bit = 0.125mV  0.0078125mV
-      float multiplier = ((float) ratedAmps) / ratedMilliVolts;
-      float voltageDrop = ((float) shuntADC * 256.0) / 32768.0;
-      rtnAmps = multiplier * voltageDrop;
-    }
-    return rtnAmps;
-  }
-
-  virtual void print()
-  {
-    readAndCacheAmps();
-
-    Serial.print("{ ");
-    JPRINT_NUMBER(amps);
-    Serial.print(", ");
-    JPRINT_NUMBER(ratedAmps);
-    Serial.print(", ");
-    JPRINT_NUMBER(ratedMilliVolts);
-    Serial.print(" }");
-  }
-
-};
-
-
-class Voltmeter
-{
-  public:
-  
-  int analogPin;
-  float r1;
-  float r2; // measured from analog pin to ground
-  float vcc;
-  float volts = 0; // cached for use with power meter
-  
-  Voltmeter(int analogPin, float r1 = 1000000.0, float r2 = 100000.0, float vcc = 5.0) : 
-    analogPin(analogPin),
-    r1(r1),
-    r2(r2),
-    vcc(vcc) 
-  {    
-  }
-
-  virtual float readAndCacheVoltage() 
-  {  
-    // first read consistantly seems too high so ignore it
-    readVoltage();
-    
-    // volts used later to compute watts from PowerMeter
-    volts = sample(this,&Voltmeter::readVoltage, 10, 50);
-    return volts;
-  }
-
-  float readVoltage()
-  {
-    float adc = analogRead(analogPin);
-    float dividerWeight = ((float)(r1 + r2))/r2;
-    return dividerWeight * adc * vcc / 1024.0;
-  }
-
-  virtual void print()
-  {
-    readAndCacheVoltage();
-    float assignedVcc = vcc;
-    float assignedR1 = r1;
-    float assignedR2 = r2;
-    Serial.print("{ ");
-    JPRINT_NUMBER(volts);
-    Serial.print(", ");
-    JPRINT_NUMBER(analogPin);
-    Serial.print(", ");
-    JPRINT_NUMBER(assignedVcc);
-    Serial.print(", ");
-    JPRINT_NUMBER(assignedR1);
-    Serial.print(", ");
-    JPRINT_NUMBER(assignedR2);
-    Serial.print(" }");
-  }
-};
-
-
-class PowerMeter
-{
-  public:
-  const char* const name;
-  Voltmeter* voltmeter;
-  Shunt* shunt;
-
-  static void printPowerMeters(PowerMeter** power)
-  {
-    Serial.print("  ");
-    JPRINT_KEY(powerMeters);
-    Serial.print("[");
-    for( int i = 0; power[i] != NULL; i++ )
-    {
-      if ( i != 0 ) {
-        Serial.print(",");
-      }
-      Serial.println();
-      power[i]->print();    
-    }
-    Serial.print("]");
-  }
-
-  PowerMeter(const char* const name, Voltmeter* voltmeter, Shunt* shunt):
-    name(name),
-    voltmeter(voltmeter),
-    shunt(shunt)
-  {      
-  }
-
-  virtual void setup()
-  {
-    shunt->setup();
-  }
-
-  virtual void print()
-  {
-    Serial.print("  {\n    ");
-    JPRINT_STRING(name);
-    Serial.print(",\n    ");
-    JPRINT_KEY(voltage);
-    voltmeter->print();
-    Serial.print(",\n    ");
-    JPRINT_KEY(current);
-    shunt->print();
-    Serial.print(",\n    ");
-    // voltmeter volts and shunt amps values will be cached after print calls above
-    float watts = voltmeter->volts * shunt->amps;
-    JPRINT_NUMBER(watts);
-    Serial.print("\n  }");
-  }
-};
-
-
-class DeviceConfig
-{
-  public:
-  int index;
-  Device* pDevice;
-
-  // persistent fields (up 5 fans)
-  static const unsigned int MAX_FAN_CNT = 4;
-
-  float fanOnTemps[MAX_FAN_CNT];
-  float fanOffTemps[MAX_FAN_CNT];
-
-  static size_t getFirstElementAddr() { return sizeof(VERSION) + sizeof(fanMode); }
-  static size_t getElementSize() { return MAX_FAN_CNT*2*sizeof(float); }
-  
-  DeviceConfig(int index, Device* pDevice) :
-    index(index),
-    pDevice(pDevice)
-  {
-  }
-
-  void load()
-  {
-    int addr = DeviceConfig::getFirstElementAddr() + index * DeviceConfig::getElementSize();
-    EEPROM.get( addr, fanOnTemps );
-    EEPROM.get( addr + sizeof(fanOnTemps), fanOffTemps );
-    for ( int i = 0; pDevice->fans[i] != NULL; i++ ) {
-      Fan* pFan = pDevice->fans[i];
-      pFan->onTemp = fanOnTemps[i];
-      pFan->offTemp = fanOffTemps[i];
-    }
-  }
-
-  void save()
-  {
-    int addr = DeviceConfig::getFirstElementAddr() + index * DeviceConfig::getElementSize();
-    memset(fanOnTemps, 0, sizeof(fanOnTemps));
-    memset(fanOffTemps, 0, sizeof(fanOffTemps));
-    for ( int i = 0; pDevice->fans[i] != NULL; i++ )
-    {
-      Fan* pFan = pDevice->fans[i];
-      fanOnTemps[i] = pFan->onTemp;
-      fanOffTemps[i] = pFan->offTemp;
-    }
-    EEPROM.put( addr, fanOnTemps );
-    EEPROM.put( addr + sizeof(fanOnTemps), fanOffTemps );
-  }
-  
-};
-
-class PowerMeterConfig
-{
-  public:
-
-  static size_t getElementSize() { return sizeof(float); }
-  
-  static size_t computeFirstElementAddr( Device** devices ) {
-      int deviceCnt = 0;
-      for( int i = 0; devices[i] != NULL; i++ ){ deviceCnt++; }
-      return DeviceConfig::getFirstElementAddr() + deviceCnt * DeviceConfig::getElementSize();
-  }
-  
-  int index;
-  int firstPowerMeterAddr;
-  PowerMeter* pPowerMeter;
-
-  float voltmeterVcc;
-
-  PowerMeterConfig(int firstPowerMeterAddr, int index, PowerMeter* pPowerMeter) :
-    firstPowerMeterAddr(firstPowerMeterAddr),
-    index(index),
-    pPowerMeter(pPowerMeter)
-  {
-  }
-
-  void load()
-  {
-    int addr = firstPowerMeterAddr + index * PowerMeterConfig::getElementSize();    
-    EEPROM.get( addr, voltmeterVcc );
-    pPowerMeter->voltmeter->vcc = voltmeterVcc;
-  }
-
-  void save()
-  {
-    int addr = firstPowerMeterAddr + index * PowerMeterConfig::getElementSize();
-    EEPROM.put( addr, pPowerMeter->voltmeter->vcc );
-  }
-  
-};
-
-/////////////////////////////////////////////////////////////////////////
-//
-// Declarations
-//
-/////////////////////////////////////////////////////////////////////////
+#include "solar/JsonWriter.h"
+
+#include "solar/Fan.h"
+#include "solar/TempSensor.h"
+#include "solar/DhtTempSensor.h"
+#include "solar/Device.h"
+#include "solar/Shunt.h"
+#include "solar/Voltmeter.h"
+#include "solar/PowerMeter.h"
+#include "solar/DeviceConfig.h"
+#include "solar/PowerMeterConfig.h"
 
 //
 // Fan relays used are enabled with LOW signal but we are wiring to "normally closed" 
@@ -719,9 +94,8 @@ Device controllers("Controllers", chargeCtrlsFans, chargeCtrlsTempSensors );
 Device* devices[] = { &bench, &controllers, NULL };
 
 // VCC calibrated for Samsung Chronos laptop and USB hub (with display off)
-Voltmeter batteryBankVoltmeter(3, 1010000.0, 100500.0, 4.77);
+Voltmeter batteryBankVoltmeter(3, 1010000.0, 100500.0, 4.89);
 Shunt batteryBankShunt;
-
 
 PowerMeter batteryBankPower("Main 12V Battery Bank",&batteryBankVoltmeter,&batteryBankShunt);
 PowerMeter* powerMeters[] = { &batteryBankPower, NULL };
@@ -739,21 +113,17 @@ void setup() {
   char version[VERSION_SIZE];
   EEPROM.get(0,version);
 
-  #ifdef VERBOSE
-  Serial.print(F("#  Loaded version:"));
-  Serial.println(version);
-  #endif
-
   int powerMetersAddr = PowerMeterConfig::computeFirstElementAddr(devices);
 
   if ( strcmp(VERSION,version) )
   {
-    gLastInfoMsg = F("Version changed.  Clearing EEPROM and saving defaults.  Old: ");
+    gLastInfoMsg = F("Version changed. Clearing EEPROM and saving defaults.  Old: ");
     gLastInfoMsg += version;
     gLastInfoMsg += " New: ";
     gLastInfoMsg += VERSION;
     EEPROM.put(0,VERSION);
     EEPROM.put(sizeof(VERSION), fanMode);
+    EEPROM.put(sizeof(VERSION)+sizeof(fanMode), outputFormat);
     for( int i = 0; devices[i] != NULL; i++ ){
       DeviceConfig config(i,devices[i]);
       config.save();
@@ -768,10 +138,10 @@ void setup() {
     gLastInfoMsg = F("Loading EEPROM data for version ");
     gLastInfoMsg += version;
     
-    #ifdef VERBOSE
-    Serial.println(F("#  Loading EEPROM data."));
-    #endif
     EEPROM.get(sizeof(VERSION), fanMode);
+
+    EEPROM.get(sizeof(VERSION) + sizeof(fanMode), outputFormat);
+    
     for( int i = 0; devices[i] != NULL; i++ )
     {
       DeviceConfig config(i,devices[i]);
@@ -827,29 +197,68 @@ void loop()
     
     if ( bytesRead > 0 ) {
 
-      #ifdef VERBOSE
-      Serial.print(F("#  Received: ")); Serial.print(commandBuff); Serial.println("'");
-      #endif
-      
       char *pszCmd = strtok(commandBuff, ", \r\n");
 
       int respCode = 0;
       String respMsg = "OK";
 
-      Serial.println(F("#BEGIN#"));
-      Serial.println( "{" );
-      
-      if ( !strcmp_P(pszCmd,PSTR("GET")) )
-      {       
-        Fan::printFanMode(fanMode);                           
-        Serial.println(",");
+      JsonSerialWriter writer;
 
-        PowerMeter::printPowerMeters(powerMeters);
-        Serial.println(",");
-        
-        Device::printDevices(devices);
-        Serial.println(",");
+      writer.impl.println(F("#BEGIN#"));
+      writer.println( "{" );
+      writer.increaseDepth();
+
+      if ( !strcmp_P(pszCmd,PSTR("VERSION")) )
+      {
+        writer.printlnStringObj(F("version"),VERSION,",")
+          .printlnNumberObj(F("buildNumber"),BUILD_NUMBER,",")
+          .printlnStringObj(F("buildDate"),BUILD_DATE,",");
+      }
+      else if ( !strcmp_P(pszCmd,PSTR("GET")) )
+      {       
+        writer.printlnNumberObj(F("fanMode"),fanMode,",");
+        writer.printlnStringObj(F("fanModeText"),Fan::getFanModeText(fanMode),",");
+        writer.printlnArrayObj(F("powerMeters"),powerMeters,",");
+        writer.printlnArrayObj(F("devices"),devices,",");
       } 
+      else if ( !strcmp_P(pszCmd,PSTR("SET_OUTPUT_FORMAT")) )
+      {
+        const char* pszFormat = strtok(NULL,", ");
+        if ( !strcmp_P(pszFormat,PSTR("JSON_COMPACT")) )
+        {
+          outputFormat = JSON_COMPACT;
+        } 
+        else if (!strcmp_P(pszFormat,PSTR("JSON_PRETTY")) )
+        {
+          outputFormat = JSON_PRETTY;
+        }
+        else
+        {
+           respCode = 3;
+           respMsg = F("Expected JSON_COMPACT|JSON_PRETTY but found: ");
+           respMsg += pszFormat;
+        }
+        if ( respCode == 0 )
+        {
+          const char* pszSaveMode = strtok(NULL,", ");
+          
+          if ( !strcmp_P(pszSaveMode,PSTR("PERSIST")) )
+          {
+            EEPROM.put( sizeof(VERSION)+sizeof(fanMode), outputFormat);
+            respMsg += " saved to EEPROM";
+          } 
+          else if ( !strcmp_P(pszSaveMode,PSTR("TRANSIENT")) )
+          {
+            // No action for transient
+          } 
+          else 
+          {
+            respCode = 103;
+            respMsg = F("Expected PERSIST|TRANSIENT but found: ");
+            respMsg += pszSaveMode;
+          }
+        }
+      }
       else if ( !strcmp_P(pszCmd,PSTR("SET_FAN_MODE")) )
       {
         const char* pszFanMode = strtok(NULL,", ");
@@ -1022,12 +431,11 @@ void loop()
       }      
       else
       {
-        respMsg = F("Expected GET|SET_FAN_MODE|SET_FAN_THRESHOLDS|SET_POWER_METER_VCC: ");
+        respMsg = F("Expected GET|SET_FAN_MODE|SET_FAN_THRESHOLDS|SET_POWER_METER_VCC|SET_OUTPUT_FORMAT|VERSION: ");
         respMsg += pszCmd;
         respCode = -1;
       }
       
-      Serial.print("  ");
       if ( gLastErrorMsg.length() ) 
       {
         if ( respCode == 0 ) 
@@ -1046,14 +454,11 @@ void loop()
         respMsg += " | ";
         respMsg += gLastInfoMsg;
       }
-      JPRINT_NUMBER(respCode);
-      Serial.println(",");
-      Serial.print("  ");
-      JPRINT_STRING(respMsg);
-      Serial.println();
-      Serial.println("}");
-
-      Serial.println(F("#END#"));
+      writer.printlnNumberObj(F("respCode"),respCode,",");
+      writer.printlnStringObj(F("respMsg"),respMsg);
+      writer.decreaseDepth();
+      writer.impl.println("}");
+      writer.impl.println(F("#END#"));
 
       // clear last error AFTER response sent to save memory
       gLastErrorMsg = "";    
