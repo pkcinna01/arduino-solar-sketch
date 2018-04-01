@@ -30,9 +30,6 @@ class TempSensor : public ArduinoComponent
   virtual void setup()
   {
     pinMode(sensorPin,INPUT);
-    #ifdef DEBUG
-    Serial.print(F("#  '")); Serial.print(name); Serial.print(F("' thermistor analog input pin:")); Serial.println(sensorPin);
-    #endif
   }
   
   virtual float readTemp() 

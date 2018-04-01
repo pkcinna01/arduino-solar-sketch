@@ -1,6 +1,7 @@
 //////////////////////////////////////////////////////////////////////////
 //
 // Project enables/disables fans based on temperature monitoring devices
+// and monitors power usage.
 // 
 // A device can have multiple fans and multiple temperature guages.  All 
 // fans for a device are turned on/off based on the max temperature probe
@@ -11,13 +12,12 @@
 // 2) An oscillating fan cooling 2 epsolar charge controllers where each has 
 //    a dedicated thermistor temp sensor. 
 //
-// The serial bus support allows info about fans and temperatures to be
-// monitored with Prometheus and displayed in Grafana.  The EPSolar
-// charge controller metrics from monitoring can override the arduino fan
-// regulation, A Grafana or Prometheus alert can trigger a 
-// "SET_FAN_MODE,0N,TRANSIENT" command to temporarily take control.
+// The serial bus API provides fan and temperature details for Prometheus and
+// Grafana.  The EPSolar charge controller metrics from monitoring can override
+// the arduino fan regulation.  A Grafana or Prometheus alert can trigger a
+// "SET_FAN_MODE,ON,TRANSIENT" command to temporarily take control.
 // "SET_FAN_MODE,AUTO,TRANSIENT" will give control back to arduino temp sensors.
-// Prometheus gets arduino metrics using the Java "arduino-client" in same
+// Prometheus gets arduino metrics using the Java "arduino-solar-client" in same
 // parent folder as this project.
 // 
 //////////////////////////////////////////////////////////////////////////
@@ -37,12 +37,11 @@
 #define FAHRENHEIT true
 
 //
-// Change version if changes impact data structures in EEPROM.
-// Warning: Version change will reset EEPROM data to defaults unless 
-// only change is in the last number (build)
+// Change version if code changes impact data structures in EEPROM.
+// A version change will reset EEPROM data to defaults.
 //
 #define VERSION "SOLAR-1.7"
-#define BUILD_NUMBER 1
+#define BUILD_NUMBER 2
 #define BUILD_DATE __DATE__
 
 typedef unsigned char FanMode;
@@ -94,7 +93,7 @@ Device controllers("Controllers", chargeCtrlsFans, chargeCtrlsTempSensors );
 Device* devices[] = { &bench, &controllers, NULL };
 
 // VCC calibrated for Samsung Chronos laptop and USB hub (with display off)
-Voltmeter batteryBankVoltmeter(3, 1010000.0, 100500.0, 4.89);
+Voltmeter batteryBankVoltmeter(3, 1010000.0, 100500.0, 4.88);
 Shunt batteryBankShunt;
 
 PowerMeter batteryBankPower("Main 12V Battery Bank",&batteryBankVoltmeter,&batteryBankShunt);
@@ -108,7 +107,9 @@ PowerMeter* powerMeters[] = { &batteryBankPower, NULL };
 
 void setup() {
   
-  Serial.begin(57600);
+  //Serial.begin(57600, SERIAL_8N1);
+  Serial.begin(57600, SERIAL_8O1); // bit usage: 8 data, odd parity, 1 stop
+
   
   char version[VERSION_SIZE];
   EEPROM.get(0,version);
@@ -180,7 +181,7 @@ void loop()
 
   bool bSerialAvailable = Serial.available();
   
-  if ( bSerialAvailable || loopCnt++ % 10 == 0 )
+  if ( bSerialAvailable || loopCnt++ % 20 == 0 )
   {
     for( int i = 0; devices[i] != NULL; i++ )
     {
@@ -197,31 +198,36 @@ void loop()
     
     if ( bytesRead > 0 ) {
 
-      char *pszCmd = strtok(commandBuff, ", \r\n");
+      char *pszCmd = strtok(commandBuff, "|");            
+      unsigned int requestId = atoi(strtok(NULL,"|"));
+      char *pszCmdName = strtok(pszCmd, ", \r\n");
 
       int respCode = 0;
       String respMsg = "OK";
 
       JsonSerialWriter writer;
-
-      writer.impl.println(F("#BEGIN#"));
+      JsonSerialWriter::clearByteCount();
+      JsonSerialWriter::clearChecksum();
+      writer.implPrint(F("#BEGIN:"));
+      writer.implPrint(requestId);
+      writer.implPrintln("#");
       writer.println( "{" );
       writer.increaseDepth();
 
-      if ( !strcmp_P(pszCmd,PSTR("VERSION")) )
+      if ( !strcmp_P(pszCmdName,PSTR("VERSION")) )
       {
         writer.printlnStringObj(F("version"),VERSION,",")
           .printlnNumberObj(F("buildNumber"),BUILD_NUMBER,",")
           .printlnStringObj(F("buildDate"),BUILD_DATE,",");
       }
-      else if ( !strcmp_P(pszCmd,PSTR("GET")) )
+      else if ( !strcmp_P(pszCmdName,PSTR("GET")) )
       {       
         writer.printlnNumberObj(F("fanMode"),fanMode,",");
         writer.printlnStringObj(F("fanModeText"),Fan::getFanModeText(fanMode),",");
         writer.printlnArrayObj(F("powerMeters"),powerMeters,",");
         writer.printlnArrayObj(F("devices"),devices,",");
       } 
-      else if ( !strcmp_P(pszCmd,PSTR("SET_OUTPUT_FORMAT")) )
+      else if ( !strcmp_P(pszCmdName,PSTR("SET_OUTPUT_FORMAT")) )
       {
         const char* pszFormat = strtok(NULL,", ");
         if ( !strcmp_P(pszFormat,PSTR("JSON_COMPACT")) )
@@ -259,7 +265,7 @@ void loop()
           }
         }
       }
-      else if ( !strcmp_P(pszCmd,PSTR("SET_FAN_MODE")) )
+      else if ( !strcmp_P(pszCmdName,PSTR("SET_FAN_MODE")) )
       {
         const char* pszFanMode = strtok(NULL,", ");
         if ( !strcmp("ON",pszFanMode) ) {
@@ -298,14 +304,11 @@ void loop()
           }
         }
       } 
-      else if ( !strcmp_P(pszCmd,PSTR("SET_FAN_THRESHOLDS")) )
+      else if ( !strcmp_P(pszCmdName,PSTR("SET_FAN_THRESHOLDS")) )
       {
-        //example: SET_FAN_THRESHOLDS,*,Osc,98.0,78.0,PERSIST
-        
         const char* pszDeviceFilter = strtok(NULL,",");
         const char* pszFanFilter = strtok(NULL,",");
 
-        //TODO - no way in arduino to validate float parsing since sscanf fails on floats :-( 
         float onTemp = atof(strtok(NULL,", "));
         float offTemp = atof(strtok(NULL,", "));
 
@@ -371,7 +374,7 @@ void loop()
           }
         }
       }
-      else if ( !strcmp_P(pszCmd,PSTR("SET_POWER_METER_VCC")) )
+      else if ( !strcmp_P(pszCmdName,PSTR("SET_POWER_METER_VCC")) )
       {
         //example: SET_POWER_METER_VCC,*,4.88,PERSIST
 
@@ -431,8 +434,8 @@ void loop()
       }      
       else
       {
-        respMsg = F("Expected GET|SET_FAN_MODE|SET_FAN_THRESHOLDS|SET_POWER_METER_VCC|SET_OUTPUT_FORMAT|VERSION: ");
-        respMsg += pszCmd;
+        respMsg = F("Expected VERSION|GET|SET_FAN_MODE|SET_FAN_THRESHOLDS|SET_POWER_METER_VCC|SET_OUTPUT_FORMAT: ");
+        respMsg += pszCmdName;
         respCode = -1;
       }
       
@@ -457,8 +460,14 @@ void loop()
       writer.printlnNumberObj(F("respCode"),respCode,",");
       writer.printlnStringObj(F("respMsg"),respMsg);
       writer.decreaseDepth();
-      writer.impl.println("}");
-      writer.impl.println(F("#END#"));
+      writer.print("}");
+      writer.implPrint(F("\n#END:"));
+      writer.implPrint(requestId);
+      writer.implPrint(":");
+      writer.implPrint(JsonSerialWriter::getByteCount());
+      writer.implPrint(":");
+      writer.implPrint(JsonSerialWriter::getChecksum());
+      writer.implPrintln("#");
 
       // clear last error AFTER response sent to save memory
       gLastErrorMsg = "";    

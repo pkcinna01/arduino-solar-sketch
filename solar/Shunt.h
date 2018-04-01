@@ -82,7 +82,8 @@ class Shunt : public ArduinoComponent
   virtual float readAndCacheAmps() 
   {  
     // amps used later to compute watts from PowerMeter
-    //amps = sample(this,&Shunt::readAmps);
+
+    // amps = sample(this,&Shunt::readAmps);
     amps = readAmps();
     return amps;
   }
@@ -123,7 +124,7 @@ class Shunt : public ArduinoComponent
     JsonSerialWriter w(depth);
     if ( sameLine )
     {
-      w.appendPrintln("{");
+      w.noPrefixPrintln("{");
     }
     else
     {

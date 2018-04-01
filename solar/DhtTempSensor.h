@@ -20,9 +20,6 @@ class DhtTempSensor : public TempSensor
   virtual void setup()
   {
     dht.begin();
-    #ifdef DEBUG
-    Serial.print(F("#DHT")); Serial.print(dhtType); Serial.print(F(" started on digital pin ")); Serial.println(sensorPin);
-    #endif
   }
 
   virtual float readHumidity()

@@ -2,22 +2,21 @@
 
 ## Synopsis
 
-This application controls fans based on temperature sensors and fan on/off temp thresholds.  It also allows USB
+This application controls fans based on temperature sensors and monitors power usage.  It supports USB
 queries so the state of the fans and temperature sensors can be monitored and displayed with tools such as Prometheus
-and Grafana.  The USB interface lets monitoring alerts and external programs control the fans or let this Arduino
-program control them.
+and Grafana.  The USB interface lets monitoring systems and external programs override fan behavior. 
 
 Available commands:
 `VERSION|GET|SET_FAN_MODE|SET_FAN_THRESHOLDS|SET_POWER_METER_VCC|SET_OUTPUT_FORMAT`
 
 #### TODO
-2. Provide Arduino circuit diagram   
+1. Provide Arduino circuit diagram   
 
 ## USB Command Examples
 
-See [arduino-solar-client](https://github.com/pkcinna01/arduino-solar-client) for example of sendind data over USB.
+See [arduino-solar-client](https://github.com/pkcinna01/arduino-solar-client) for an example of sendind data over USB.
 
-List state of each device including the temp sensors and fans.  This can be used for monitoring and alerts.
+Get the state of each device and power meter.
 ```
 GET
 ```
@@ -36,6 +35,12 @@ temp exceeds 90 degrees fahrenheit and off when temp goes below 85.
 SET_FAN_THRESHOLDS,Bench,*,90,85,PERSIST
 ```
 
+Calibrate the voltage used to measure device voltage and power consumption.  The second argument is the filter 
+on the power meter name and the third argument is the measured voltage of the Arduino or power source used.
+```
+SET_POWER_METER_VCC,*,4.89
+```
+ 
 ## Motivation
 
 Used to efficiently cool several solar charge controllers in an off grid system.

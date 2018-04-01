@@ -27,7 +27,7 @@ class Voltmeter : public ArduinoComponent
     readVoltage();
     
     // volts used later to compute watts from PowerMeter
-    volts = sample(this,&Voltmeter::readVoltage, 10, 50);
+    volts = sample(this,&Voltmeter::readVoltage, 20, 25);
     return volts;
   }
 
@@ -53,7 +53,7 @@ class Voltmeter : public ArduinoComponent
     JsonSerialWriter w(depth);
     if ( sameLine )
     {
-      w.appendPrintln("{");
+      w.noPrefixPrintln("{");
     }
     else
     {

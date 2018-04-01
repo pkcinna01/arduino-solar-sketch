@@ -8,7 +8,6 @@ class DeviceConfig
   int index;
   Device* pDevice;
 
-  // persistent fields (up 5 fans)
   static const unsigned int MAX_FAN_CNT = 4;
 
   float fanOnTemps[MAX_FAN_CNT];

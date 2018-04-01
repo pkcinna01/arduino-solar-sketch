@@ -30,10 +30,10 @@ class PowerMeter : public ArduinoComponent
     w.printlnStringObj(F("name"),name,",");
     w.printKey(F("voltage"));
     voltmeter->print(depth+1,true);
-    w.appendPrintln(",");
+    w.noPrefixPrintln(",");
     w.printKey(F("current"));
     shunt->print(depth+1,true);
-    w.appendPrintln(",");
+    w.noPrefixPrintln(",");
     // voltmeter volts and shunt amps values will be cached after print calls above
     float watts = voltmeter->volts * shunt->amps;
     w.printlnNumberObj(F("watts"),watts);
