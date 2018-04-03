@@ -56,8 +56,10 @@ class Shunt : public ArduinoComponent
     ads.begin();
   }
   
-  virtual int16_t readADC()
+  virtual int16_t readADC(int delayMs = 0)
   {
+    delay(delayMs);
+
     int16_t adc;
     if ( channel >= CHANNEL_A0 && channel <= CHANNEL_A3 )
     {
@@ -82,8 +84,6 @@ class Shunt : public ArduinoComponent
   virtual float readAndCacheAmps() 
   {  
     // amps used later to compute watts from PowerMeter
-
-    // amps = sample(this,&Shunt::readAmps);
     amps = readAmps();
     return amps;
   }
@@ -93,9 +93,14 @@ class Shunt : public ArduinoComponent
     int16_t shuntADC = readADC();
     float rtnAmps = 0;
     
-    if ( shuntADC == -1 )
+    if ( shuntADC < 0 
+      && (shuntADC=readADC(50)) < 0 
+      && (shuntADC=readADC(50)) < 0)
     {
-      gLastErrorMsg = F("Shunt::readAmps() ADS1115 returned -1.  Check connections and pin mappings.");
+      // tried 3 times and all attempts failed
+      gLastErrorMsg = F("Shunt::readAmps() ADS1115::readADC() returned ");
+      gLastErrorMsg += shuntADC;
+      gLastErrorMsg += F(". Check connections and pin mappings.");
     }
     else if ( shuntADC == INVALID_CHANNEL )
     {
