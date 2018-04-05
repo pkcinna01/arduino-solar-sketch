@@ -22,6 +22,14 @@
 // 
 //////////////////////////////////////////////////////////////////////////
 
+//
+// Change version if code changes impact data structures in EEPROM.
+// A version change will reset EEPROM data to defaults.
+//
+#define VERSION "SOLAR-1.8"
+#define BUILD_NUMBER 4
+#define BUILD_DATE __DATE__
+
 #ifndef ARDUINO // HACK for intellisense in VSCODE
   #define ARDUINO 10805  
   #include <iom328p.h>
@@ -35,14 +43,6 @@
 
 #define VERSION_SIZE 10
 #define FAHRENHEIT true
-
-//
-// Change version if code changes impact data structures in EEPROM.
-// A version change will reset EEPROM data to defaults.
-//
-#define VERSION "SOLAR-1.7"
-#define BUILD_NUMBER 2
-#define BUILD_DATE __DATE__
 
 typedef unsigned char FanMode;
 
@@ -92,8 +92,7 @@ Device bench("Bench", benchFans, benchTempSensors );
 Device controllers("Controllers", chargeCtrlsFans, chargeCtrlsTempSensors );
 Device* devices[] = { &bench, &controllers, NULL };
 
-// VCC calibrated for Samsung Chronos laptop and USB hub (with display off)
-Voltmeter batteryBankVoltmeter(3, 1010000.0, 100500.0, 4.88);
+Voltmeter batteryBankVoltmeter(3, 1010000.0, 100500.0, 4.78);
 Shunt batteryBankShunt;
 
 PowerMeter batteryBankPower("Main 12V Battery Bank",&batteryBankVoltmeter,&batteryBankShunt);
@@ -108,7 +107,7 @@ PowerMeter* powerMeters[] = { &batteryBankPower, NULL };
 void setup() {
   
   //Serial.begin(57600, SERIAL_8N1);
-  Serial.begin(57600, SERIAL_8O1); // bit usage: 8 data, odd parity, 1 stop
+  Serial.begin(38400, SERIAL_8O1); // bit usage: 8 data, odd parity, 1 stop
 
   
   char version[VERSION_SIZE];
@@ -259,7 +258,7 @@ void loop()
           } 
           else 
           {
-            respCode = 103;
+            respCode = 301;
             respMsg = F("Expected PERSIST|TRANSIENT but found: ");
             respMsg += pszSaveMode;
           }
@@ -278,7 +277,7 @@ void loop()
           fanMode = FAN_MODE_AUTO;
           respMsg = F("OK - fanMode=AUTO");
         } else {
-          respCode = 102;
+          respCode = 302;
           respMsg = F("Expected ON|OFF|AUTO for fan mode. Received: ");
           respMsg += pszFanMode;
         }
@@ -298,7 +297,7 @@ void loop()
           } 
           else 
           {
-            respCode = 103;
+            respCode = 303;
             respMsg = F("Expected PERSIST|TRANSIENT but found: ");
             respMsg += pszSaveMode;
           }
@@ -315,7 +314,7 @@ void loop()
         if ( onTemp <= offTemp ) 
         {
             respMsg = F("Fan ON temperature must be greater than OFF temp.");            
-            respCode = 201;          
+            respCode = 401;
         }
         else
         {
@@ -364,23 +363,24 @@ void loop()
             {
               respMsg = F("Expected PERSIST|TRANSIENT but found: ");
               respMsg += pszSaveMode;
-              respCode = 203;
+              respCode = 403;
             }
           } 
           else
           {
             respMsg = F("No fans matched device and fan name filters");
-            respCode = 204;
+            respCode = 404;
           }
         }
       }
-      else if ( !strcmp_P(pszCmdName,PSTR("SET_POWER_METER_VCC")) )
+      else if ( !strcmp_P(pszCmdName,PSTR("SET_POWER_METER")) )
       {
-        //example: SET_POWER_METER_VCC,*,4.88,PERSIST
-
+        //example: SET_POWER_METER,VCC,*,4.88,PERSIST
+        //example: SET_POWER_METER,R1,*,1005000,PERSIST
+        const char* pszMemberName = strtok(NULL,",");
         const char* pszMeterNameFilter = strtok(NULL,",");
         
-        float vcc = atof(strtok(NULL,", "));
+        float newValue = atof(strtok(NULL,", "));
 
         String updatedMeters = "";
         
@@ -388,7 +388,19 @@ void loop()
         {
           if ( !strcmp(pszMeterNameFilter,"*") || strstr(powerMeters[i]->name,pszMeterNameFilter) )
           {
-            powerMeters[i]->voltmeter->vcc = vcc;
+            if ( !strcmp_P(pszMemberName,PSTR("VCC")) ) {
+              powerMeters[i]->voltmeter->vcc = newValue;
+            } else if ( !strcmp_P(pszMemberName,PSTR("R1")) ) {
+              powerMeters[i]->voltmeter->r1 = newValue;
+            } else if ( !strcmp_P(pszMemberName,PSTR("R2")) ) {
+              powerMeters[i]->voltmeter->r2 = newValue;
+            } else {
+              respMsg = F("Expected VCC|R1|R2 but found: ");
+              respMsg += pszMemberName;
+              respCode = 302;
+              break;
+            }
+            
             if ( updatedMeters.length() )
             {
               updatedMeters += ",";
@@ -398,7 +410,10 @@ void loop()
           }
         }
   
-        if (updatedMeters.length())
+        if ( respCode != 0 ) 
+        {
+        }
+        else if ( updatedMeters.length() > 0 )
         {
           respMsg += F(" Set vcc for: ");
           respMsg += updatedMeters;
@@ -422,21 +437,21 @@ void loop()
           {
             respMsg = F("Expected PERSIST|TRANSIENT but found: ");
             respMsg += pszSaveMode;
-            respCode = 303;
+            respCode = 503;
           }
         } 
         else
         {
           respMsg = F("No power meter name matched filter: ");
           respMsg += pszMeterNameFilter;
-          respCode = 304;
+          respCode = 504;
         }
       }      
       else
       {
-        respMsg = F("Expected VERSION|GET|SET_FAN_MODE|SET_FAN_THRESHOLDS|SET_POWER_METER_VCC|SET_OUTPUT_FORMAT: ");
+        respMsg = F("Expected VERSION|GET|SET_FAN_MODE|SET_FAN_THRESHOLDS|SET_POWER_METER|SET_OUTPUT_FORMAT but found: ");
         respMsg += pszCmdName;
-        respCode = -1;
+        respCode = 601;
       }
       
       if ( gLastErrorMsg.length() ) 
