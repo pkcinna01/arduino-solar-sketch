@@ -23,5 +23,27 @@ class ArduinoComponent
     }
     return sum/cnt;
   }
+
+  // for debugging non-printable characters in serialbus input
+  /*
+  static String& appendHex(const char* pszSource, String& dest)
+  {
+    uint8_t length = strlen(pszSource);
+    for (uint8_t i=0; i < length; i++) 
+    {
+        if ( i != 0 ) 
+          dest += ",";
+        byte byteVal = ((pszSource[i] >> 4) & 0x0F) + 48;
+        char msd = (byteVal > 9) ? byteVal + (byte)7 : byteVal;
+        byteVal = (pszSource[i] & 0x0F) + 48;
+        char lsd = (byteVal > 9) ? byteVal + (byte)7 : byteVal;
+        dest += "0x";
+        dest += msd;
+        dest += lsd;     
+    }
+    return dest;
+  }
+  */
+
 };
 #endif

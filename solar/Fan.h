@@ -75,6 +75,7 @@ class Fan : public ArduinoComponent
     w.printlnStringObj(F("name"),name,",");
     w.printlnNumberObj(F("relayPin"),relayPin,",");
     w.printlnNumberObj(F("onTemp"),onTemp,",");
+    w.printlnNumberObj(F("offTemp"),offTemp,",");
     int relayValue = bitRead(PORTD,relayPin);
     w.printlnNumberObj(F("relayValue"),relayValue,",");
     w.printlnBoolObj(F("on"),relayValue == onValue);

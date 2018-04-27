@@ -201,6 +201,10 @@ void loop()
       unsigned int requestId = atoi(strtok(NULL,"|"));
       char *pszCmdName = strtok(pszCmd, ", \r\n");
 
+      while ( pszCmdName[0] == -1 ) {
+        pszCmdName++;
+      }
+      
       int respCode = 0;
       String respMsg = "OK";
 
