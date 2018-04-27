@@ -3,6 +3,10 @@
 
 #include "ArduinoComponent.h"
 
+typedef unsigned char PowerMeterMember;
+
+const PowerMeterMember POWER_METER_MEMBER_INVALID = -1, POWER_METER_MEMBER_VCC = 0, POWER_METER_MEMBER_R1 = 1, POWER_METER_MEMBER_R2 = 2;
+
 class PowerMeter : public ArduinoComponent
 {
   public:

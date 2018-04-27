@@ -3,6 +3,10 @@
 
 #include "ArduinoComponent.h"
 
+typedef unsigned char FanMode;
+
+const FanMode FAN_MODE_INVALID = -1, FAN_MODE_OFF = 0, FAN_MODE_ON = 1, FAN_MODE_AUTO = 2;
+
 class Fan : public ArduinoComponent
 {
   public:
@@ -12,11 +16,13 @@ class Fan : public ArduinoComponent
   int relayPin;
   bool onValue = HIGH; // some relays are on when signal is set low/false instead of high/true
 
+  static FanMode mode;
+
   static String getFanModeText(FanMode mode, int depth = 1) 
   {
-    return fanMode == FAN_MODE_AUTO ? "AUTO" 
-         : fanMode == FAN_MODE_ON ? "ON" 
-         : fanMode == FAN_MODE_OFF ? "OFF" 
+    return Fan::mode == FAN_MODE_AUTO ? "AUTO" 
+         : Fan::mode == FAN_MODE_ON ? "ON" 
+         : Fan::mode == FAN_MODE_OFF ? "OFF" 
          : "INVALID";                       
   }
   
@@ -44,7 +50,7 @@ class Fan : public ArduinoComponent
     bool bTurnOn = false;
     bool bTurnOff = false;
 
-    switch ( fanMode ) {
+    switch ( Fan::mode ) {
       case FAN_MODE_ON: 
         bTurnOn = true;
         break;
@@ -83,5 +89,7 @@ class Fan : public ArduinoComponent
     w.print("}");
   }
 };
+
+FanMode Fan::mode = FAN_MODE_AUTO;
 
 #endif

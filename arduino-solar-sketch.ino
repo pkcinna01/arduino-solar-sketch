@@ -27,7 +27,7 @@
 // A version change will reset EEPROM data to defaults.
 //
 #define VERSION "SOLAR-1.8"
-#define BUILD_NUMBER 4
+#define BUILD_NUMBER 6
 #define BUILD_DATE __DATE__
 
 #ifndef ARDUINO // HACK for intellisense in VSCODE
@@ -43,18 +43,6 @@
 
 #define VERSION_SIZE 10
 #define FAHRENHEIT true
-
-typedef unsigned char FanMode;
-
-const FanMode FAN_MODE_OFF = 0, FAN_MODE_ON = 0x1, FAN_MODE_AUTO = 0x2;
-
-FanMode fanMode = FAN_MODE_AUTO;
-
-typedef unsigned char OutputFormat;
-
-const OutputFormat JSON_COMPACT = 0, JSON_PRETTY = 1;
-
-OutputFormat outputFormat = JSON_PRETTY;
 
 String gLastErrorMsg;
 String gLastInfoMsg;
@@ -122,8 +110,8 @@ void setup() {
     gLastInfoMsg += " New: ";
     gLastInfoMsg += VERSION;
     EEPROM.put(0,VERSION);
-    EEPROM.put(sizeof(VERSION), fanMode);
-    EEPROM.put(sizeof(VERSION)+sizeof(fanMode), outputFormat);
+    EEPROM.put(sizeof(VERSION), Fan::mode);
+    EEPROM.put(sizeof(VERSION)+sizeof(Fan::mode), JsonSerialWriter::format);
     for( int i = 0; devices[i] != NULL; i++ ){
       DeviceConfig config(i,devices[i]);
       config.save();
@@ -138,9 +126,9 @@ void setup() {
     gLastInfoMsg = F("Loading EEPROM data for version ");
     gLastInfoMsg += version;
     
-    EEPROM.get(sizeof(VERSION), fanMode);
+    EEPROM.get(sizeof(VERSION), Fan::mode);
 
-    EEPROM.get(sizeof(VERSION) + sizeof(fanMode), outputFormat);
+    EEPROM.get(sizeof(VERSION) + sizeof(Fan::mode), JsonSerialWriter::format);
     
     for( int i = 0; devices[i] != NULL; i++ )
     {
@@ -206,8 +194,8 @@ void loop()
       }
       
       int respCode = 0;
-      String respMsg = "OK";
-
+      const __FlashStringHelper * respMsgKey = F("respMsg");
+      
       JsonSerialWriter writer;
       JsonSerialWriter::clearByteCount();
       JsonSerialWriter::clearChecksum();
@@ -221,104 +209,133 @@ void loop()
       {
         writer.printlnStringObj(F("version"),VERSION,",")
           .printlnNumberObj(F("buildNumber"),BUILD_NUMBER,",")
-          .printlnStringObj(F("buildDate"),BUILD_DATE,",");
+          .printlnStringObj(F("buildDate"),BUILD_DATE,",")
+          .beginStringObj(respMsgKey);
       }
       else if ( !strcmp_P(pszCmdName,PSTR("GET")) )
       {       
-        writer.printlnNumberObj(F("fanMode"),fanMode,",");
-        writer.printlnStringObj(F("fanModeText"),Fan::getFanModeText(fanMode),",");
+        writer.printlnNumberObj(F("fanMode"),Fan::mode,",");
+        writer.printlnStringObj(F("fanModeText"),Fan::getFanModeText(Fan::mode),",");
         writer.printlnArrayObj(F("powerMeters"),powerMeters,",");
         writer.printlnArrayObj(F("devices"),devices,",");
+        writer.beginStringObj(respMsgKey);
       } 
       else if ( !strcmp_P(pszCmdName,PSTR("SET_OUTPUT_FORMAT")) )
       {
+        writer.beginStringObj(respMsgKey);
+        
         const char* pszFormat = strtok(NULL,", ");
+        const char* pszPersistMode = strtok(NULL,", ");
+        PersistMode persistMode = ArduinoComponent::parsePersistMode(pszPersistMode);
+
+        JsonFormat fmt = JSON_FORMAT_INVALID;
+         
         if ( !strcmp_P(pszFormat,PSTR("JSON_COMPACT")) )
         {
-          outputFormat = JSON_COMPACT;
+          fmt = JSON_FORMAT_COMPACT;
         } 
         else if (!strcmp_P(pszFormat,PSTR("JSON_PRETTY")) )
         {
-          outputFormat = JSON_PRETTY;
+          fmt = JSON_FORMAT_PRETTY;
+        }
+        
+        if ( !pszFormat || !pszPersistMode ) 
+        {
+          writer + F("Expected SET_OUTPUT_FORMAT,{JSON_COMPACT|JSON_PRETTY},{PERSIST|TRANSIENT} but found: ") + pszCmd;
+          respCode = 201;
+        }
+        else if ( fmt == JSON_FORMAT_INVALID ) {
+          writer + F("Expected JSON_COMPACT|JSON_PRETTY but found: ") + pszFormat;
+          respCode = 202;
+        }
+        else if ( persistMode == PERSIST_MODE_INVALID ) 
+        {
+          writer + F("Expected PERSIST|TRANSIENT but found: ") + pszPersistMode;
+          respCode = 203;
         }
         else
         {
-           respCode = 3;
-           respMsg = F("Expected JSON_COMPACT|JSON_PRETTY but found: ");
-           respMsg += pszFormat;
-        }
-        if ( respCode == 0 )
-        {
-          const char* pszSaveMode = strtok(NULL,", ");
-          
-          if ( !strcmp_P(pszSaveMode,PSTR("PERSIST")) )
+          JsonSerialWriter::format = fmt;
+          bool bPersist = persistMode == PERSIST_MODE_SAVE;
+          if ( bPersist ) 
           {
-            EEPROM.put( sizeof(VERSION)+sizeof(fanMode), outputFormat);
-            respMsg += " saved to EEPROM";
-          } 
-          else if ( !strcmp_P(pszSaveMode,PSTR("TRANSIENT")) )
-          {
-            // No action for transient
-          } 
-          else 
-          {
-            respCode = 301;
-            respMsg = F("Expected PERSIST|TRANSIENT but found: ");
-            respMsg += pszSaveMode;
+            EEPROM.put( sizeof(VERSION)+sizeof(Fan::mode), JsonSerialWriter::format);
           }
+          writer + "Output Format: " + pszFormat + ".  Saved to EEPROM: " + (bPersist?"TRUE":"FALSE");
         }
       }
       else if ( !strcmp_P(pszCmdName,PSTR("SET_FAN_MODE")) )
       {
+        writer.beginStringObj(respMsgKey);
+        
         const char* pszFanMode = strtok(NULL,", ");
+        const char* pszPersistMode = strtok(NULL,", ");
+
+        FanMode fanMode = FAN_MODE_INVALID;
         if ( !strcmp("ON",pszFanMode) ) {
           fanMode = FAN_MODE_ON;
-          respMsg = F("OK - fanMode=ON");
         } else if ( !strcmp("OFF",pszFanMode) ) {
           fanMode = FAN_MODE_OFF;
-          respMsg = F("OK - fanMode=OFF");
         } else if ( !strcmp("AUTO",pszFanMode) ) {
           fanMode = FAN_MODE_AUTO;
-          respMsg = F("OK - fanMode=AUTO");
-        } else {
-          respCode = 302;
-          respMsg = F("Expected ON|OFF|AUTO for fan mode. Received: ");
-          respMsg += pszFanMode;
         }
 
-        if ( respCode == 0 )
+        PersistMode persistMode = ArduinoComponent::parsePersistMode(pszPersistMode);
+        
+        if ( !pszFanMode || !pszPersistMode ) 
         {
-          const char* pszSaveMode = strtok(NULL,", ");
-          
-          if ( !strcmp_P(pszSaveMode,PSTR("PERSIST")) )
-          {
-            EEPROM.put( sizeof(VERSION), fanMode);
-            respMsg += " saved to EEPROM";
-          } 
-          else if ( !strcmp_P(pszSaveMode,PSTR("TRANSIENT")) )
-          {
-            // No action for transient
-          } 
-          else 
-          {
-            respCode = 303;
-            respMsg = F("Expected PERSIST|TRANSIENT but found: ");
-            respMsg += pszSaveMode;
-          }
+          writer + F("Expected SET_FAN_MODE,{ON|OFF|AUTO},{PERSIST|TRANSIENT} but found: ") + pszCmd;
+          respCode = 301;
         }
+        else if ( fanMode == FAN_MODE_INVALID ) 
+        {
+          writer + F("Expected ON|OFF|AUTO for fan mode. Received: ") + pszFanMode;
+          respCode = 303;
+        }
+        else if ( persistMode == PERSIST_MODE_INVALID ) 
+        {
+          writer + F("Expected PERSIST|TRANSIENT but found: ") + pszPersistMode;
+          respCode = 302;
+        }
+        else
+        {
+          Fan::mode = fanMode;
+          bool bPersist = persistMode == PERSIST_MODE_SAVE;
+          
+          if ( bPersist )
+          {
+            EEPROM.put( sizeof(VERSION), Fan::mode);
+          }
+          writer + "Fan Mode: " + pszFanMode + ".  Saved to EEPROM: " + (bPersist?"TRUE":"FALSE");
+        } 
       } 
       else if ( !strcmp_P(pszCmdName,PSTR("SET_FAN_THRESHOLDS")) )
       {
         const char* pszDeviceFilter = strtok(NULL,",");
         const char* pszFanFilter = strtok(NULL,",");
+        const char* pszOnTemp = strtok(NULL,",");
+        const char* pszOffTemp = strtok(NULL,",");
 
-        float onTemp = atof(strtok(NULL,", "));
-        float offTemp = atof(strtok(NULL,", "));
+        float onTemp = atof(pszOnTemp);
+        float offTemp = atof(pszOffTemp);
 
-        if ( onTemp <= offTemp ) 
+        const char* pszPersistMode = strtok(NULL,", ");
+        PersistMode persistMode = ArduinoComponent::parsePersistMode(pszPersistMode);
+
+        if ( !pszDeviceFilter || !pszFanFilter || !pszOnTemp || !pszOffTemp || !pszPersistMode ) 
         {
-            respMsg = F("Fan ON temperature must be greater than OFF temp.");            
-            respCode = 401;
+          writer + F("Expected SET_FAN_THRESHOLDS,{device filter},{fan filter},{on temp},{off temp},{PERSIST|TRANSIENT} but found: ") + pszCmd;
+          respCode = 401;
+        }
+        else if ( persistMode == PERSIST_MODE_INVALID ) 
+        {
+          writer + F("Expected PERSIST|TRANSIENT but found: ") + pszPersistMode;
+          respCode = 402;
+        }
+        else if ( onTemp <= offTemp ) 
+        {
+          writer + F("Fan ON temperature must be greater than OFF temp.");            
+          respCode = 403;
         }
         else
         {
@@ -345,13 +362,17 @@ void loop()
             }
           }
   
-          if (updatedFans.length())
+          if (updatedFans.length() == 0)
           {
-            respMsg += F(" Set fan thresholds for: ");
-            respMsg += updatedFans;
-            const char* pszSaveMode = strtok(NULL,", ");
-            
-            if ( !strcmp_P(pszSaveMode,PSTR("PERSIST")) )
+            writer + F("No fans matched device and fan name filters");
+            respCode = 404;
+          }
+          else 
+          {
+            // fans were updated
+            bool bPersist = persistMode == PERSIST_MODE_SAVE;
+
+            if ( bPersist )
             {
               for( int i = 0; devices[i] != NULL; i++ )
               {
@@ -359,125 +380,141 @@ void loop()
                 deviceConfig.save();
               }
             } 
-            else if ( !strcmp_P(pszSaveMode,PSTR("TRANSIENT")) )
-            {
-              // No action for transient
-            }
-            else
-            {
-              respMsg = F("Expected PERSIST|TRANSIENT but found: ");
-              respMsg += pszSaveMode;
-              respCode = 403;
-            }
+            writer + F("Fan thresholds updated for: ") + updatedFans + ".  Saved to EEPROM: " + (bPersist?"TRUE":"FALSE");
           } 
-          else
-          {
-            respMsg = F("No fans matched device and fan name filters");
-            respCode = 404;
-          }
         }
       }
       else if ( !strcmp_P(pszCmdName,PSTR("SET_POWER_METER")) )
       {
         //example: SET_POWER_METER,VCC,*,4.88,PERSIST
         //example: SET_POWER_METER,R1,*,1005000,PERSIST
+
+        writer.beginStringObj(respMsgKey);
+        
         const char* pszMemberName = strtok(NULL,",");
         const char* pszMeterNameFilter = strtok(NULL,",");
-        
-        float newValue = atof(strtok(NULL,", "));
+        const char* pszNewValue = strtok(NULL,", ");
+        const char* pszPersistMode = strtok(NULL,", ");
 
-        String updatedMeters = "";
+        float newValue = atof(pszNewValue);
         
-        for( int i = 0; powerMeters[i] != NULL; i++ )
-        {
-          if ( !strcmp(pszMeterNameFilter,"*") || strstr(powerMeters[i]->name,pszMeterNameFilter) )
-          {
-            if ( !strcmp_P(pszMemberName,PSTR("VCC")) ) {
-              powerMeters[i]->voltmeter->vcc = newValue;
-            } else if ( !strcmp_P(pszMemberName,PSTR("R1")) ) {
-              powerMeters[i]->voltmeter->r1 = newValue;
-            } else if ( !strcmp_P(pszMemberName,PSTR("R2")) ) {
-              powerMeters[i]->voltmeter->r2 = newValue;
-            } else {
-              respMsg = F("Expected VCC|R1|R2 but found: ");
-              respMsg += pszMemberName;
-              respCode = 302;
-              break;
-            }
-            
-            if ( updatedMeters.length() )
-            {
-              updatedMeters += ",";
-            }
-            updatedMeters += powerMeters[i]->name;
-
-          }
-        }
-  
-        if ( respCode != 0 ) 
-        {
-        }
-        else if ( updatedMeters.length() > 0 )
-        {
-          respMsg += F(" Set vcc for: ");
-          respMsg += updatedMeters;
-          const char* pszSaveMode = strtok(NULL,", ");
-          
-          if ( !strcmp_P(pszSaveMode,PSTR("PERSIST")) )
-          {
-            size_t baseAddr = PowerMeterConfig::computeFirstElementAddr(devices);
-            
-            for( int i = 0; powerMeters[i] != NULL; i++ )
-            {
-              PowerMeterConfig config(baseAddr,i,powerMeters[i]);
-              config.save();
-            }
-          } 
-          else if ( !strcmp_P(pszSaveMode,PSTR("TRANSIENT")) )
-          {
-            // No action for transient
-          }
-          else
-          {
-            respMsg = F("Expected PERSIST|TRANSIENT but found: ");
-            respMsg += pszSaveMode;
-            respCode = 503;
-          }
+        int member = POWER_METER_MEMBER_INVALID;
+        if ( !strcmp_P(pszMemberName,PSTR("VCC")) ) {    
+          member = POWER_METER_MEMBER_VCC;
+        } else if ( !strcmp_P(pszMemberName,PSTR("R1")) ) {
+          member = POWER_METER_MEMBER_R1;
+        } else if ( !strcmp_P(pszMemberName,PSTR("R2")) ) {
+          member = POWER_METER_MEMBER_R2;
         } 
+          
+        PersistMode persistMode = ArduinoComponent::parsePersistMode(pszPersistMode);
+
+        if ( !pszMemberName || !pszMeterNameFilter || !pszPersistMode || !pszNewValue ) 
+        {
+          writer + F("Expected SET_POWER_METER,{VCC|R1|R2},{meter name filter},{float value},{PERSIST|TRANSIENT} but found: ") + pszCmd;
+          respCode = 501;
+        }
+        else if ( member == POWER_METER_MEMBER_INVALID )
+        {
+          writer + F("Expected VCC|R1|R2 but found: ") + pszMemberName;
+          respCode = 502;
+        } 
+        else if ( persistMode == PERSIST_MODE_INVALID ) 
+        {
+          respCode = 503;
+          writer + F("Expected PERSIST|TRANSIENT but found: ") + pszPersistMode;
+        }
         else
         {
-          respMsg = F("No power meter name matched filter: ");
-          respMsg += pszMeterNameFilter;
-          respCode = 504;
+          //proceed... args okay
+          String updatedMeters = "";
+      
+          for( int i = 0; powerMeters[i] != NULL; i++ )
+          {
+            if ( !strcmp(pszMeterNameFilter,"*") || strstr(powerMeters[i]->name,pszMeterNameFilter) )
+            {
+              switch(member) {
+                case POWER_METER_MEMBER_R1:
+                  powerMeters[i]->voltmeter->r1 = newValue;
+                  break;
+                case POWER_METER_MEMBER_R2:
+                  powerMeters[i]->voltmeter->r2 = newValue;
+                  break;
+                case POWER_METER_MEMBER_VCC:
+                default:
+                  powerMeters[i]->voltmeter->vcc = newValue;
+                  break;
+              }
+
+              if ( updatedMeters.length() )
+              {
+                updatedMeters += ",";
+              }
+              updatedMeters += powerMeters[i]->name;
+            }
+          }
+          if ( updatedMeters.length() > 0 )
+          {
+            // meters were updated
+            bool bPersist = persistMode == PERSIST_MODE_SAVE;
+
+            if ( bPersist )
+            {
+              size_t baseAddr = PowerMeterConfig::computeFirstElementAddr(devices);
+              
+              for( int i = 0; powerMeters[i] != NULL; i++ )
+              {
+                PowerMeterConfig config(baseAddr,i,powerMeters[i]);
+                config.save();
+              }
+            }
+            writer + F("Set vcc=") + newValue + F(" for: ") + updatedMeters + ".  Saved to EEPROM: " + (bPersist?"TRUE":"FALSE");              
+          } 
+          else
+          {
+            writer + F("No power meter name matched filter: ") + pszMeterNameFilter;
+            respCode = 504;
+          }
         }
       }      
       else
       {
-        respMsg = F("Expected VERSION|GET|SET_FAN_MODE|SET_FAN_THRESHOLDS|SET_POWER_METER|SET_OUTPUT_FORMAT but found: ");
-        respMsg += pszCmdName;
+        writer.beginStringObj(respMsgKey)
+          + F("Expected VERSION|GET|SET_FAN_MODE|SET_FAN_THRESHOLDS|SET_POWER_METER|SET_OUTPUT_FORMAT but found: ")
+          + pszCmdName;
         respCode = 601;
       }
       
       if ( gLastErrorMsg.length() ) 
-      {
+      {        
         if ( respCode == 0 ) 
         {
           respCode = -1;
-          respMsg = gLastErrorMsg;
         }
-        else
-        {
-          respMsg += " | ";
-          respMsg += gLastErrorMsg;
-        }
+        if ( writer.getOpenStringValByteCnt() > 0 ) 
+          writer + " | ";
+        writer + gLastErrorMsg;
       }
       else if ( gLastInfoMsg.length() )
       {
-        respMsg += " | ";
-        respMsg += gLastInfoMsg;
+        if ( writer.getOpenStringValByteCnt() > 0 ) 
+          writer + " | ";
+        writer + gLastInfoMsg;
       }
-      writer.printlnNumberObj(F("respCode"),respCode,",");
-      writer.printlnStringObj(F("respMsg"),respMsg);
+      if ( writer.getOpenStringValByteCnt() <= 0 ) 
+      {
+        if ( respCode == 0 ) 
+        {
+          writer + F("OK");
+        }
+        else
+        {
+          writer + F("ERROR");
+        }
+      }
+      writer.endStringObj(",");
+      writer.noPrefixPrintln("");
+      writer.printlnNumberObj(F("respCode"),respCode);
       writer.decreaseDepth();
       writer.print("}");
       writer.implPrint(F("\n#END:"));

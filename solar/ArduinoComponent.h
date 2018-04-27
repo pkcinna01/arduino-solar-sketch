@@ -1,6 +1,10 @@
 #ifndef ARDUINOCOMPONENT_H
 #define ARDUINOCOMPONENT_H
 
+typedef unsigned char PersistMode;
+
+const PersistMode PERSIST_MODE_INVALID = -1, PERSIST_MODE_TRANSIENT = 0, PERSIST_MODE_SAVE = 1;
+
 class ArduinoComponent
 {
   public:
@@ -22,6 +26,22 @@ class ArduinoComponent
       }
     }
     return sum/cnt;
+  }
+
+  static PersistMode parsePersistMode(const char* pszPersistMode) 
+  {
+    if ( !strcmp_P(pszPersistMode,PSTR("PERSIST")) )
+    {
+      return PERSIST_MODE_SAVE;
+    } 
+    else if ( !strcmp_P(pszPersistMode,PSTR("TRANSIENT")) )
+    {
+      return PERSIST_MODE_TRANSIENT;
+    } 
+    else 
+    {
+      return PERSIST_MODE_INVALID;
+    }
   }
 
   // for debugging non-printable characters in serialbus input

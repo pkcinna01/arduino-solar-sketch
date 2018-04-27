@@ -14,6 +14,9 @@ class SerialByteCounter : public Print {
 
 SerialByteCounter byteCounter;
 
+typedef unsigned char JsonFormat;
+const JsonFormat JSON_FORMAT_INVALID = -1, JSON_FORMAT_COMPACT = 0, JSON_FORMAT_PRETTY = 1;
+
 /**
  *  Print JSON to something with print() and println() methods such as Arduino Serial
  **/
@@ -54,22 +57,22 @@ class JsonWriter
 
   public:
   
+  static JsonFormat format;
+
   static void clearByteCount() { byteCnt = 0; }
   static unsigned long getByteCount() { return byteCnt; }
   static void clearChecksum() { checksum = 0; }
   static unsigned long getChecksum() { return checksum; }
+  static bool isPretty() { return format == JSON_FORMAT_PRETTY; }
+  
 
   int depth;
+  int beginStringObjByteCnt;
 
   JsonWriter<T>(T& impl, int depth = 0) :
     impl(impl),
     depth(depth)
   {
-  }
-
-  bool isPretty()
-  {
-    return outputFormat == JSON_PRETTY;
   }
 
   JsonWriter& printPrefix() { 
@@ -140,12 +143,50 @@ class JsonWriter
   template<typename TKey, typename TVal>
   JsonWriter& printStringObj(TKey k, TVal v, const char* suffix = "" )
   {     
+    beginStringObj(k);
+    appendStringVal(v);
+    endStringObj(suffix);
+    return *this;
+  }
+
+  template<typename TKey>
+  JsonWriter& beginStringObj(TKey k)
+  {     
     printKey(k);
     statefulPrint("\""); 
+    beginStringObjByteCnt = byteCnt;
+    return *this;
+  }
+
+  template<typename TVal>
+  JsonWriter operator+(TVal v) 
+  {
+    return appendStringVal(v);
+  }
+
+  //TODO - escape double quotes if a string
+  template<typename TVal>
+  JsonWriter& appendStringVal(TVal v)
+  { 
     statefulPrint(v); 
+    return *this;
+  }
+  
+  JsonWriter& endStringObj(const char* suffix = "")
+  { 
     statefulPrint("\"");
     statefulPrint(suffix);
+    beginStringObjByteCnt = -1;
     return *this;
+  }
+
+  int getOpenStringValByteCnt()
+  {
+    if ( beginStringObjByteCnt < 0 ) {
+      // not currently writing a string value;
+      return -1;
+    }
+    return byteCnt - beginStringObjByteCnt;
   }
 
   template<typename TKey, typename TVal>
@@ -248,5 +289,7 @@ template<class C>
 unsigned long JsonWriter<C>::checksum = 0;
 template<class C>
 unsigned long JsonWriter<C>::byteCnt = 0;
+template<class C>
+JsonFormat JsonWriter<C>::format = JSON_FORMAT_PRETTY;
 
 #endif

@@ -13,7 +13,7 @@ class DeviceConfig
   float fanOnTemps[MAX_FAN_CNT];
   float fanOffTemps[MAX_FAN_CNT];
 
-  static size_t getFirstElementAddr() { return sizeof(VERSION) + sizeof(fanMode) + sizeof(outputFormat); }
+  static size_t getFirstElementAddr() { return sizeof(VERSION) + sizeof(Fan::mode) + sizeof(JsonSerialWriter::format); }
   static size_t getElementSize() { return MAX_FAN_CNT*2*sizeof(float); }
   
   DeviceConfig(int index, Device* pDevice) :
