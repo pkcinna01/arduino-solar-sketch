@@ -17,7 +17,7 @@
 // the arduino fan regulation.  A Grafana or Prometheus alert can trigger a
 // "SET_FAN_MODE,ON,TRANSIENT" command to temporarily take control.
 // "SET_FAN_MODE,AUTO,TRANSIENT" will give control back to arduino temp sensors.
-// Prometheus gets arduino metrics using the Java "arduino-solar-client" in same
+// Prometheus gets arduino metrics using the Java "solar-client" in same
 // parent folder as this project.
 // 
 //////////////////////////////////////////////////////////////////////////
@@ -27,7 +27,7 @@
 // A version change will reset EEPROM data to defaults.
 //
 #define VERSION "SOLAR-1.8"
-#define BUILD_NUMBER 6
+#define BUILD_NUMBER 7
 #define BUILD_DATE __DATE__
 
 #ifndef ARDUINO // HACK for intellisense in VSCODE
@@ -96,7 +96,6 @@ void setup() {
   
   //Serial.begin(57600, SERIAL_8N1);
   Serial.begin(38400, SERIAL_8O1); // bit usage: 8 data, odd parity, 1 stop
-
   
   char version[VERSION_SIZE];
   EEPROM.get(0,version);
@@ -161,49 +160,89 @@ void setup() {
 // Arduino Main Loop
 //
 /////////////////////////////////////////////////////////////////////////
-
 void loop() 
 {
-  static unsigned int loopCnt = 0;
+  static unsigned long lastUpdateTimeMs = 0, beginCmdReadTimeMs = 0;
+  static unsigned int updateIntervalMs = 10000;
+  static char commandBuff[200];
+  static size_t bytesRead = 0; 
 
-  bool bSerialAvailable = Serial.available();
-  
-  if ( bSerialAvailable || loopCnt++ % 20 == 0 )
+  bool msgSizeExceeded = false;
+  bool cmdReady = false;
+  bool msgReadTimedOut = false;
+  unsigned long currentTimeMs = millis();
+
+  // read char by char to avoid issues with default 64 byte serial buffer
+  while (Serial.available() ) {        
+    char c = Serial.read();
+    if ( bytesRead == 0 ) {
+      if ( c == -1 )
+        continue;
+      else 
+        beginCmdReadTimeMs = millis();
+    }
+    commandBuff[bytesRead++] = c;
+    if (c == '\n') {
+      commandBuff[bytesRead] = '\0';
+      cmdReady = true;
+      break;
+    } else if ( bytesRead >= sizeof commandBuff ) {
+      commandBuff[bytesRead-1] = '\0';
+      msgSizeExceeded = true;
+      break;
+    } 
+  }
+    
+  if ( cmdReady || (currentTimeMs - lastUpdateTimeMs) > updateIntervalMs )
   {
+    lastUpdateTimeMs = currentTimeMs;
     for( int i = 0; devices[i] != NULL; i++ )
     {
       devices[i]->update();
-      loopCnt = 1;    
     }
+  } else if ( beginCmdReadTimeMs > 0 && (currentTimeMs - beginCmdReadTimeMs) > updateIntervalMs ) {
+    msgReadTimedOut = true;
   }
   
-  if ( bSerialAvailable )
-  {
-    char commandBuff[256];   
-    memset(commandBuff,0,256);
-    int bytesRead = Serial.readBytesUntil('\n', commandBuff, 256);
+  if ( cmdReady || msgReadTimedOut ) {
+
+    char *pszCmd = strtok(commandBuff, "|");            
+    char *pszRequestId = strtok(NULL,"|");
+    unsigned int requestId = atoi(pszRequestId);
     
-    if ( bytesRead > 0 ) {
-
-      char *pszCmd = strtok(commandBuff, "|");            
-      unsigned int requestId = atoi(strtok(NULL,"|"));
+    int respCode = 0;
+    const __FlashStringHelper * respMsgKey = F("respMsg");
+    
+    JsonSerialWriter writer;
+    JsonSerialWriter::clearByteCount();
+    JsonSerialWriter::clearChecksum();
+    writer.implPrint(F("#BEGIN:"));
+    writer.implPrint(requestId);
+    writer.implPrintln("#");
+    writer.println( "{" );
+    writer.increaseDepth();
+    if ( msgReadTimedOut ) 
+    {
+      writer.beginStringObj(respMsgKey);
+      writer + F("Serial data read timed out.  Bytes received: ") + bytesRead;
+      respCode = 101;
+    }
+    else if ( msgSizeExceeded )
+    {
+      writer.beginStringObj(respMsgKey);
+      writer + F("Request exceeded maximum size. Bytes read: ") + bytesRead;
+      respCode = 102;
+    }
+    else if ( !pszRequestId || strlen(pszRequestId) == 0 )
+    {
+      writer.beginStringObj(respMsgKey);
+      writer + F("Expected command to end with an integer request id (Format: {COMMAND}|{REQUEST_ID}, Example: GET|99).");
+      writer + F(" Bytes read: ") + bytesRead;
+      respCode = 103;
+    }
+    else
+    {
       char *pszCmdName = strtok(pszCmd, ", \r\n");
-
-      while ( pszCmdName[0] == -1 ) {
-        pszCmdName++;
-      }
-      
-      int respCode = 0;
-      const __FlashStringHelper * respMsgKey = F("respMsg");
-      
-      JsonSerialWriter writer;
-      JsonSerialWriter::clearByteCount();
-      JsonSerialWriter::clearChecksum();
-      writer.implPrint(F("#BEGIN:"));
-      writer.implPrint(requestId);
-      writer.implPrintln("#");
-      writer.println( "{" );
-      writer.increaseDepth();
 
       if ( !strcmp_P(pszCmdName,PSTR("VERSION")) )
       {
@@ -311,6 +350,8 @@ void loop()
       } 
       else if ( !strcmp_P(pszCmdName,PSTR("SET_FAN_THRESHOLDS")) )
       {
+        writer.beginStringObj(respMsgKey);
+
         const char* pszDeviceFilter = strtok(NULL,",");
         const char* pszFanFilter = strtok(NULL,",");
         const char* pszOnTemp = strtok(NULL,",");
@@ -484,53 +525,54 @@ void loop()
           + pszCmdName;
         respCode = 601;
       }
-      
-      if ( gLastErrorMsg.length() ) 
-      {        
-        if ( respCode == 0 ) 
-        {
-          respCode = -1;
-        }
-        if ( writer.getOpenStringValByteCnt() > 0 ) 
-          writer + " | ";
-        writer + gLastErrorMsg;
-      }
-      else if ( gLastInfoMsg.length() )
-      {
-        if ( writer.getOpenStringValByteCnt() > 0 ) 
-          writer + " | ";
-        writer + gLastInfoMsg;
-      }
-      if ( writer.getOpenStringValByteCnt() <= 0 ) 
-      {
-        if ( respCode == 0 ) 
-        {
-          writer + F("OK");
-        }
-        else
-        {
-          writer + F("ERROR");
-        }
-      }
-      writer.endStringObj(",");
-      writer.noPrefixPrintln("");
-      writer.printlnNumberObj(F("respCode"),respCode);
-      writer.decreaseDepth();
-      writer.print("}");
-      writer.implPrint(F("\n#END:"));
-      writer.implPrint(requestId);
-      writer.implPrint(":");
-      writer.implPrint(JsonSerialWriter::getByteCount());
-      writer.implPrint(":");
-      writer.implPrint(JsonSerialWriter::getChecksum());
-      writer.implPrintln("#");
-
-      // clear last error AFTER response sent to save memory
-      gLastErrorMsg = "";    
-      gLastInfoMsg = "";
     }
-  } 
-  delay(500);
+    
+    if ( gLastErrorMsg.length() ) 
+    {        
+      if ( respCode == 0 ) 
+      {
+        respCode = -1;
+      }
+      if ( writer.getOpenStringValByteCnt() > 0 ) 
+        writer + " | ";
+      writer + gLastErrorMsg;
+    }
+    else if ( gLastInfoMsg.length() )
+    {
+      if ( writer.getOpenStringValByteCnt() > 0 ) 
+        writer + " | ";
+      writer + gLastInfoMsg;
+    }
+    if ( writer.getOpenStringValByteCnt() <= 0 ) 
+    {
+      if ( respCode == 0 ) 
+      {
+        writer + F("OK");
+      }
+      else
+      {
+        writer + F("ERROR");
+      }
+    }
+    writer.endStringObj(",");
+    writer.noPrefixPrintln("");
+    writer.printlnNumberObj(F("respCode"),respCode);
+    writer.decreaseDepth();
+    writer.print("}");
+    writer.implPrint(F("\n#END:"));
+    writer.implPrint(requestId);
+    writer.implPrint(":");
+    writer.implPrint(JsonSerialWriter::getByteCount());
+    writer.implPrint(":");
+    writer.implPrint(JsonSerialWriter::getChecksum());
+    writer.implPrintln("#");
 
- }
+    // clear last error AFTER response sent to save memory
+    gLastErrorMsg = "";    
+    gLastInfoMsg = "";
+
+    bytesRead = 0; // reset commandBuff
+    beginCmdReadTimeMs = 0;
+  }
+}
 
