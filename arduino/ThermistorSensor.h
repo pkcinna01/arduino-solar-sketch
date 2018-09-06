@@ -1,25 +1,21 @@
-#ifndef TEMPSENSOR_H
-#define TEMPSENSOR_H
 
-#include "ArduinoComponent.h"
+#ifndef ARDUINO_THERMISTOR_SENSOR_H
+#define ARDUINO_THERMISTOR_SENSOR_H
 
-class TempSensor : public ArduinoComponent
-{
+#include "AnalogSensor.h"
+
+class ThermistorSensor : public AnalogSensor {
   public:
-  const char* const name;
-  int sensorPin;
-
   float beta; //3950.0,  3435.0 
   float balanceResistance, roomTempResistance, roomTempKelvin;
     
-  TempSensor(const char* const name,
+  ThermistorSensor(const char* const name,
              int sensorPin, 
              float beta = 3950, 
              float balanceResistance = 9999.0, 
              float roomTempResistance = 10000.0,
              float roomTempKelvin = 298.15):
-    name(name),
-    sensorPin(sensorPin),
+    AnalogSensor(name,sensorPin,10,25),
     beta(beta),
     balanceResistance(balanceResistance),
     roomTempResistance(roomTempResistance),
@@ -27,18 +23,11 @@ class TempSensor : public ArduinoComponent
   {
   }
 
-  virtual void setup()
-  {
-    pinMode(sensorPin,INPUT);
-  }
-  
-  virtual float readTemp() 
-  {  
-    return sample(this, &TempSensor::readBetaCalculatedTemp, 10, 25);
+  float getValueImpl() const override {
+    return this->readBetaCalculatedTemp();
   }
 
-
-  float readBetaCalculatedTemp()
+  virtual float readBetaCalculatedTemp() const
   {
     int pinVoltage = analogRead(sensorPin);
     float rThermistor = balanceResistance * ( (1023.0 / pinVoltage) - 1);
@@ -49,21 +38,6 @@ class TempSensor : public ArduinoComponent
     float tFahrenheit = (tCelsius * 9.0)/ 5.0 + 32.0;
     return tFahrenheit;
   }
-  
-  virtual void print(int depth = 0)
-  {
-    float temp = readTemp();
-    JsonSerialWriter w(depth);
-    w.println("{");
-    w.increaseDepth();
-    w.printlnStringObj(F("name"),name,",");
-    w.printlnNumberObj(F("temp"),temp);
-    w.decreaseDepth();
-    w.print("}");
-  }
 };
-
-
-
 
 #endif

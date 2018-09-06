@@ -2,9 +2,12 @@
 
 ## Synopsis
 
-This application controls fans based on temperature sensors and monitors power usage.  It supports USB
-queries so the state of the fans and temperature sensors can be monitored and displayed with tools such as Prometheus
+This application controls fans and high power relays.  It supports USB
+queries so the power usage and state of devices can be monitored and displayed with tools such as Prometheus
 and Grafana.  The USB interface lets monitoring systems and external programs override fan behavior. 
+
+This is a rewrite which is not compatible with Arduino UNO.  A MEGA2560 Arduino board is now used which allows more
+memory intesive libraries and code like ArduinoSTL.  The available commands will change to reflect new device managment.
 
 Available commands:
 `VERSION|GET|SET_FAN_MODE|SET_FAN_THRESHOLDS|SET_POWER_METER_VCC|SET_OUTPUT_FORMAT`
