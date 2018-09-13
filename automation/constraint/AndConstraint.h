@@ -19,7 +19,7 @@ namespace automation {
         }
         if (!pConstraint->test()) {
           bResult = false;
-          if ( !bApplyAfterShortCircuit ) {
+          if ( bShortCircuit ) {
             break;
           }
         }

@@ -7,7 +7,6 @@
 #include <functional>
 #include <iostream>
 #include <vector>
-#include <algorithm>
 
 namespace automation {
 
@@ -28,6 +27,8 @@ namespace automation {
     virtual float getValue() const = 0;
 
     virtual void print(int depth = 0);
+
+    virtual void printVerbose(int depth = 0 ) { print(depth); }
 
     virtual const string& getTitle() const {
       return name;

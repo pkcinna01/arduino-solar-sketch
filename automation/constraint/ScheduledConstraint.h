@@ -56,6 +56,9 @@ namespace automation {
     }
 
     bool checkRanges() {
+      if ( !automation::isTimeValid() ) {
+        return false; // for arduino when no time hardware and time never set
+      }
       time_t now = std::time(nullptr);
       checkTime = *localtime(&now);
       for( auto unitRanges : rangeVectorList) {

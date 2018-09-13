@@ -9,14 +9,26 @@ class VoltageSensor : public AnalogSensor {
 public:
 
   float r1;
-  float r2; // measured from analog pin to ground
-  float vcc;
+  float r2; // analog pin to ground
+  unsigned long maxVccAgeMs;
 
-  VoltageSensor(const char *name, int analogPin, float r1 = 1000000.0, float r2 = 100000.0, float vcc = 5.0) :
+  static float vcc;
+  static unsigned long lastVccReadMs;
+
+  static void updateVcc(float maxMs = 0) {
+    unsigned long nowMs = automation::millisecs();
+    if ( (nowMs - lastVccReadMs) > maxMs) {
+      vcc = arduino::readVcc() / 1000.0;
+      lastVccReadMs = nowMs;
+      //cout << __PRETTY_FUNCTION__ << " Vcc updated to " << vcc << endl;
+    }
+  }
+
+  VoltageSensor(const char *name, int analogPin, float r1 = 1000000.0, float r2 = 100000.0, float maxVccAgeMs = 60000) :
       AnalogSensor(name, analogPin, 10 /*sample cnt*/),
       r1(r1),
       r2(r2),
-      vcc(vcc) {
+      maxVccAgeMs(maxVccAgeMs) {
   }
 
   float getValueImpl() const override {
@@ -24,29 +36,23 @@ public:
   }
 
   float readVoltage() const {
-    float adc = analogRead(sensorPin);
+    updateVcc(maxVccAgeMs);
+    float vr2 = VoltageSensor::vcc * analogRead(sensorPin) / 1023.0;
     float dividerWeight = ((float) (r1 + r2)) / r2;
-    return dividerWeight * adc * vcc / 1024.0;
+    float vin = dividerWeight * vr2;
+    return vin;
   }
 
-  virtual void print(int depth = 0) {
-    print(depth, false);
-  }
-
-  virtual void print(int depth, bool sameLine) {
+  void printVerbose(int depth) override {
     float assignedVcc = vcc;
     float assignedR1 = r1;
     float assignedR2 = r2;
 
     JsonSerialWriter w(depth);
-    if (sameLine) {
-      w.noPrefixPrintln("{");
-    } else {
-      w.println("{");
-    }
+    w.println("{");
     w.increaseDepth();
     w.printlnStringObj(F("name"), name.c_str(), ",");
-    w.printlnNumberObj(F("volts"), getValue(), ",");
+    w.printlnNumberObj(F("value"), getValue(), ",");
     w.printlnNumberObj(F("analogPin"), sensorPin, ",");
     w.printlnNumberObj(F("assignedVcc"), assignedVcc, ",");
     w.printlnNumberObj(F("assignedR1"), assignedR1, ",");
@@ -56,5 +62,8 @@ public:
   }
 
 };
+
+float VoltageSensor::vcc = 5;
+unsigned long VoltageSensor::lastVccReadMs = 0;
 
 #endif

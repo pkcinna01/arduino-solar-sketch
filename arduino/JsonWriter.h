@@ -64,7 +64,13 @@ class JsonWriter
   static void clearChecksum() { checksum = 0; }
   static unsigned long getChecksum() { return checksum; }
   static bool isPretty() { return format == JSON_FORMAT_PRETTY; }
-  
+
+  static void saveFormat();
+  static JsonFormat loadFormat();
+  static String formatAsString(JsonFormat fmt);
+  static String formatAsString();
+
+  int processSetFormatCommand( const char* pszFormat, const char* pszSaveFormat);
 
   int depth;
   int beginStringObjByteCnt;
@@ -259,6 +265,36 @@ class JsonWriter
     return *this;
   }
 
+  template<typename TKey, typename TArray>
+  JsonWriter& printVectorObj(TKey k, TArray arr, const char* suffix = "" )
+  {
+    printKey(k);
+    noPrefixPrintln("[");
+
+    bool bFirst = true;
+    for( auto obj : arr )
+    {
+      if ( bFirst ) {
+        bFirst = false;
+      } else {
+        noPrefixPrintln(",");
+      }
+      obj->print(depth+1);
+    };
+    println();
+    print("]");
+    noPrefixPrint(suffix);
+    return *this;
+  }
+
+  template<typename TKey, typename TArray>
+  JsonWriter& printlnVectorObj(TKey k, TArray arr, const char* suffix = "" )
+  {
+    printVectorObj(k,arr,suffix);
+    println();
+    return *this;
+  }
+
   // Allow printing directly to Serial or other writer without counting bytes or updating checksum
   template<typename TPrintable>
   JsonWriter& implPrint(TPrintable printable)
@@ -272,7 +308,7 @@ class JsonWriter
   { 
     impl.println(printable); 
     return *this; 
-  } 
+  }
 
 };
 
@@ -291,5 +327,61 @@ template<class C>
 unsigned long JsonWriter<C>::byteCnt = 0;
 template<class C>
 JsonFormat JsonWriter<C>::format = JSON_FORMAT_PRETTY;
+
+template<class C>
+int JsonWriter<C>::processSetFormatCommand( const char* pszFormat, const char* pszSaveMode)
+{
+  if (!strcmp_P(pszFormat, PSTR("JSON_COMPACT"))) {
+    format = JSON_FORMAT_COMPACT;
+  } else if (!strcmp_P(pszFormat, PSTR("JSON_PRETTY"))) {
+    format = JSON_FORMAT_PRETTY;
+  } else {
+    (*this) + F("Expected JSON_COMPACT|JSON_PRETTY but found: ") + pszFormat;
+    return 301;
+  }
+  if ( !strcmp_P(pszSaveMode,PSTR("PERSIST")) )
+  {
+    saveFormat();
+    (*this) + pszFormat + F(" saved to EEPROM");
+  }
+  else if ( strcmp_P(pszSaveMode,PSTR("TRANSIENT")) )
+  {
+    (*this) + F("Expected PERSIST|TRANSIENT but found: ") + pszSaveMode;
+    return 302;
+  }
+  return 0;
+}
+
+template<class C>
+JsonFormat JsonWriter<C>::loadFormat()
+{
+  EEPROM.get(sizeof(VERSION), JsonSerialWriter::format);
+  return JsonWriter<C>::format;
+}
+
+template<class C>
+void JsonWriter<C>::saveFormat()
+{
+  EEPROM.put( sizeof(VERSION), JsonWriter<C>::format);
+}
+
+template<class C>
+String JsonWriter<C>::formatAsString(JsonFormat fmt)
+{
+  if ( fmt == JSON_FORMAT_COMPACT ) {
+    return "JSON_COMPACT";
+  } else if ( fmt == JSON_FORMAT_PRETTY ){
+    return "JSON_PRETTY";
+  } else {
+    String msg("INVALID:");
+    msg += (unsigned int) fmt;
+    return msg;
+  }
+}
+template<class C>
+String JsonWriter<C>::formatAsString()
+{
+  return formatAsString(format);
+}
 
 #endif

@@ -1,5 +1,7 @@
 #include "Sensor.h"
 
+#include <algorithm>
+
 namespace automation {
 
   float Sensor::average(const vector<Sensor*>& sensors) {

@@ -4,6 +4,8 @@
 #include "ArduinoSensor.h"
 #include "JsonWriter.h"
 
+#include <Adafruit_ADS1015.h>
+
 class CurrentSensor : public ArduinoSensor {
 public:
 
@@ -106,21 +108,13 @@ public:
     return adc;
   }
 
-  void print(int depth = 0) override {
-    print(depth, false);
-  }
-
-  virtual void print(int depth, bool sameLine) {
+  void printVerbose(int depth) override {
     JsonSerialWriter w(depth);
 
-    if (sameLine) {
-      w.noPrefixPrintln("{");
-    } else {
-      w.println("{");
-    }
+    w.println("{");
     w.increaseDepth();
     w.printlnStringObj(F("name"), name.c_str(), ",");
-    w.printlnNumberObj(F("amps"), getValue(), ",");
+    w.printlnNumberObj(F("value"), getValue(), ",");
     w.printlnNumberObj(F("ratedAmps"), ratedAmps, ",");
     w.printlnNumberObj(F("ratedMilliVolts"), ratedMilliVolts);
     w.decreaseDepth();

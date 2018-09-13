@@ -27,19 +27,15 @@ namespace automation {
 
     virtual void setup()
     {
-      //cout << __PRETTY_FUNCTION__ << endl;
       for( Sensor* s : sensors ) s->setup();
-      //cout << __PRETTY_FUNCTION__ << " complete" << endl;
     }
 
-    virtual float getValue() const {
-      //cout << __PRETTY_FUNCTION__ << " begin" << endl;
-      bool rtn = getValueFn(sensors);
-      //cout << __PRETTY_FUNCTION__ << " rtn=" << rtn << endl;
-      return rtn;
+    virtual float getValue() const
+    {
+      return getValueFn(sensors);
     }
 
-    virtual void print(int depth = 0);
+    void printVerbose(int depth = 0) override;
 
     friend std::ostream &operator<<(std::ostream &os, const CompositeSensor &s) {
       os << "CompositeSensor{ strType: " << s.name << ", value: " << s.getValue() << "}";

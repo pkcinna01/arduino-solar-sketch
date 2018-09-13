@@ -31,5 +31,7 @@ namespace automation {
 
   void sleep(unsigned long intervalMs);
 
+  bool isTimeValid(); // handle arduino with time never set
+
 }
 #endif

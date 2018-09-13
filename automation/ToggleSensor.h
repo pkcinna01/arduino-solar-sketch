@@ -19,7 +19,7 @@ namespace automation {
     Toggle* pToggle;
 
     ToggleSensor(Toggle* pToggle) :
-        Sensor(pToggle->getTitle()),
+        Sensor(pToggle->getDeviceName()),
         pToggle(pToggle)
     {
     }

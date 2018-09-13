@@ -35,18 +35,18 @@ namespace arduino {
       }
     }
 
-    void print(int depth = 0) override {
+    void printVerbose(int depth = 0) override {
       JsonSerialWriter w(depth);
       w.println("{");
       w.increaseDepth();
       w.printlnStringObj(F("name"), name.c_str(), ",");
       w.printKey(F("voltage"));
-      pVoltageSensor->print(depth + 1, true);
+      pVoltageSensor->print(depth + 1);
       w.noPrefixPrintln(",");
       w.printKey(F("current"));
-      pCurrentSensor->print(depth + 1, true);
+      pCurrentSensor->print(depth + 1);
       w.noPrefixPrintln(",");
-      w.printlnNumberObj(F("watts"), getValue());
+      w.printlnNumberObj(F("value"), getValue());
       w.decreaseDepth();
       w.print("}");
     }

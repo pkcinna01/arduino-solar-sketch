@@ -21,7 +21,7 @@ namespace automation {
       for (Constraint *pConstraint : filteredConstraints) {
         if (pConstraint->test()) {
           bResult = true;
-          if ( !bApplyAfterShortCircuit ) {
+          if ( bShortCircuit ) {
             break;
           }
         }

@@ -1,32 +1,30 @@
 
-#include "../automation/Sensor.h"
-#include "../automation/CompositeSensor.h"
+#include "../automation/device/Device.h"
 
 #include "JsonWriter.h"
 
 namespace automation {
 
-void Sensor::print(int depth)
+void Device::print(int depth)
 {
-    float value = getValue();
     JsonSerialWriter w(depth);
     w.println("{");
     w.increaseDepth();
     w.printlnStringObj(F("name"),name.c_str(),",");
-    w.printlnNumberObj(F("value"),value);
+    w.printlnStringObj(F("constraint"), (bConstraintPassed || !pConstraint) ? "PASSED" : "FAILED" , ",");
+    w.printlnVectorObj(F("capabilities"), capabilities);
     w.decreaseDepth();
     w.print("}");
   }
 
 }
 
-void CompositeSensor::printVerbose(int depth)
+/*void CompositeSensor::print(int depth)
 {
     JsonSerialWriter w(depth);
     w.println("{");
     w.increaseDepth();
     w.printlnStringObj(F("name"), name.c_str(), ",");
-    w.printlnNumberObj(F("value"), getValue(), ",");
     w.printKey(F("sensors"));
     w.noPrefixPrintln("{");
     w.increaseDepth();
@@ -44,4 +42,4 @@ void CompositeSensor::printVerbose(int depth)
     w.println("}");
     w.decreaseDepth();
     w.print("}");
-}
+}*/

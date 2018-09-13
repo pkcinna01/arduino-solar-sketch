@@ -88,6 +88,12 @@ namespace automation {
       return str;
     }
 
+    virtual const string getDeviceName() const {
+      return pDevice ? pDevice->name : "";
+    }
+
+    virtual void print(int depth);
+
     friend std::ostream &operator<<(std::ostream &os, const Capability &c) {
       os << c.getTitle() << " = " << c.asString();
       return os;
