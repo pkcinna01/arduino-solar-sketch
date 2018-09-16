@@ -1,6 +1,8 @@
 #ifndef JSONWRITER_H
 #define JSONWRITER_H
 
+#include "Arduino.h"
+
 // Utility to count bytes sent with Serial class
 class SerialByteCounter : public Print {
   public:
@@ -13,9 +15,6 @@ class SerialByteCounter : public Print {
 };
 
 SerialByteCounter byteCounter;
-
-typedef unsigned char JsonFormat;
-const JsonFormat JSON_FORMAT_INVALID = -1, JSON_FORMAT_COMPACT = 0, JSON_FORMAT_PRETTY = 1;
 
 /**
  *  Print JSON to something with print() and println() methods such as Arduino Serial
@@ -56,21 +55,12 @@ class JsonWriter
   }
 
   public:
-  
-  static JsonFormat format;
 
   static void clearByteCount() { byteCnt = 0; }
   static unsigned long getByteCount() { return byteCnt; }
   static void clearChecksum() { checksum = 0; }
   static unsigned long getChecksum() { return checksum; }
-  static bool isPretty() { return format == JSON_FORMAT_PRETTY; }
-
-  static void saveFormat();
-  static JsonFormat loadFormat();
-  static String formatAsString(JsonFormat fmt);
-  static String formatAsString();
-
-  int processSetFormatCommand( const char* pszFormat, const char* pszSaveFormat);
+  static bool isPretty() { return arduino::jsonFormat == arduino::JSON_FORMAT_PRETTY; }
 
   int depth;
   int beginStringObjByteCnt;
@@ -312,6 +302,35 @@ class JsonWriter
 
 };
 
+
+struct NullSerial {
+  template<typename T>
+  void print(T& val) {
+  }
+};
+
+struct StringStreamSerial {
+  stringstream ss;
+  template<typename T>
+  void print(T& val) {
+    ss << val;
+  }
+};
+
+template<typename T>
+class GenericWriter : public JsonWriter<T>
+{
+public:
+  T serial;
+  GenericWriter(int depth=0) :
+      JsonWriter<T>(serial,depth)
+  {
+  }
+};
+
+typedef GenericWriter<NullSerial> NullWriter;
+typedef GenericWriter<StringStreamSerial> StringStreamWriter;
+
 class JsonSerialWriter : public JsonWriter<HardwareSerial>
 {
   public:
@@ -325,63 +344,5 @@ template<class C>
 unsigned long JsonWriter<C>::checksum = 0;
 template<class C>
 unsigned long JsonWriter<C>::byteCnt = 0;
-template<class C>
-JsonFormat JsonWriter<C>::format = JSON_FORMAT_PRETTY;
-
-template<class C>
-int JsonWriter<C>::processSetFormatCommand( const char* pszFormat, const char* pszSaveMode)
-{
-  if (!strcmp_P(pszFormat, PSTR("JSON_COMPACT"))) {
-    format = JSON_FORMAT_COMPACT;
-  } else if (!strcmp_P(pszFormat, PSTR("JSON_PRETTY"))) {
-    format = JSON_FORMAT_PRETTY;
-  } else {
-    (*this) + F("Expected JSON_COMPACT|JSON_PRETTY but found: ") + pszFormat;
-    return 301;
-  }
-  if ( !strcmp_P(pszSaveMode,PSTR("PERSIST")) )
-  {
-    saveFormat();
-    (*this) + pszFormat + F(" saved to EEPROM");
-  }
-  else if ( strcmp_P(pszSaveMode,PSTR("TRANSIENT")) )
-  {
-    (*this) + F("Expected PERSIST|TRANSIENT but found: ") + pszSaveMode;
-    return 302;
-  }
-  return 0;
-}
-
-template<class C>
-JsonFormat JsonWriter<C>::loadFormat()
-{
-  EEPROM.get(sizeof(VERSION), JsonSerialWriter::format);
-  return JsonWriter<C>::format;
-}
-
-template<class C>
-void JsonWriter<C>::saveFormat()
-{
-  EEPROM.put( sizeof(VERSION), JsonWriter<C>::format);
-}
-
-template<class C>
-String JsonWriter<C>::formatAsString(JsonFormat fmt)
-{
-  if ( fmt == JSON_FORMAT_COMPACT ) {
-    return "JSON_COMPACT";
-  } else if ( fmt == JSON_FORMAT_PRETTY ){
-    return "JSON_PRETTY";
-  } else {
-    String msg("INVALID:");
-    msg += (unsigned int) fmt;
-    return msg;
-  }
-}
-template<class C>
-String JsonWriter<C>::formatAsString()
-{
-  return formatAsString(format);
-}
 
 #endif

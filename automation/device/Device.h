@@ -5,6 +5,7 @@
 #include <string>
 #include <memory>
 #include "../constraint/Constraint.h"
+#include "../constraint/BooleanConstraint.h"
 
 using namespace std;
 
@@ -20,7 +21,7 @@ namespace automation {
     vector<Capability *> capabilities;
 
     Device(const string &name) :
-        name(name), pConstraint(nullptr) {
+        name(name), pConstraint(&FAIL_CONSTRAINT) {
     }
 
     virtual void applyConstraint(bool bIgnoreSameState = true, Constraint *pConstraint = nullptr) {
@@ -67,6 +68,16 @@ namespace automation {
     Constraint *pPrerequisiteConstraint = nullptr;
     bool bInitialized = false;
     bool bConstraintPassed = false;
+  };
+
+  class Devices : public vector<Device*> {
+  public:
+    Devices( vector<Device*>& devices )
+      : vector<Device*>(devices) {
+    }
+    Devices( vector<Device*> devices )
+        : vector<Device*>(devices) {
+    }
   };
 
 

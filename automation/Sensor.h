@@ -105,6 +105,16 @@ namespace automation {
 
   };
 
+  class Sensors : public vector<Sensor*> {
+  public:
+    Sensors( vector<Sensor*>& sensors )
+    : vector<Sensor*>(sensors) {
+    }
+    Sensors( vector<Sensor*> sensors )
+    : vector<Sensor*>(sensors) {
+    }
+  };
+
 }
 
 #endif

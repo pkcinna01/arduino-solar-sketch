@@ -1,9 +1,12 @@
 #ifndef ARDUINO_SENSOR_H
 #define ARDUINO_SENSOR_H
 
+#include "Arduino.h"
+
 #include "../automation/Automation.h"
 #include "../automation/Sensor.h"
 
+using namespace arduino;
 
 class ArduinoSensor : public automation::Sensor {
 public:

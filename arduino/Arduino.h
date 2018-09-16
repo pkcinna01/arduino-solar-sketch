@@ -5,29 +5,28 @@
 
 namespace arduino {
   const float Vref = 5.0;  //TODO read from mega board
-  const unsigned char VERSION_SIZE = 10;
+
+  String gLastErrorMsg;
+  String gLastInfoMsg;
+
+  typedef unsigned char JsonFormat;
+  const JsonFormat JSON_FORMAT_INVALID = -1, JSON_FORMAT_COMPACT = 0, JSON_FORMAT_PRETTY = 1;
+
+  JsonFormat jsonFormat = JSON_FORMAT_PRETTY;
 
 
-  typedef unsigned char PersistMode;
-
-  const PersistMode PERSIST_MODE_INVALID = -1, PERSIST_MODE_TRANSIENT = 0, PERSIST_MODE_SAVE = 1;
-
-  PersistMode parsePersistMode(const char* pszPersistMode)
+  String formatAsString(JsonFormat fmt)
   {
-    if ( !strcmp_P(pszPersistMode,PSTR("PERSIST")) )
-    {
-      return PERSIST_MODE_SAVE;
-    }
-    else if ( !strcmp_P(pszPersistMode,PSTR("TRANSIENT")) )
-    {
-      return PERSIST_MODE_TRANSIENT;
-    }
-    else
-    {
-      return PERSIST_MODE_INVALID;
+    if ( fmt == JSON_FORMAT_COMPACT ) {
+      return "JSON_COMPACT";
+    } else if ( fmt == JSON_FORMAT_PRETTY ){
+      return "JSON_PRETTY";
+    } else {
+      String msg("INVALID:");
+      msg += (unsigned int) fmt;
+      return msg;
     }
   }
-
 
   long readVcc() {
     // Read 1.1V reference against AVcc
@@ -59,6 +58,47 @@ namespace arduino {
     return result; // Vcc in millivolts
   }
 
+
+  std::ostream &operator<<(std::ostream &os, const __FlashStringHelper *s) {
+    String str(s);
+    os << str.c_str();
+    return os;
+  }
+
+#define CMD_OK 0
+#define CMD_ERROR -1
+#define INDEX_OUT_OF_BOUNDS -2
+#define EEPROM_CMD_ARRAY_FULL -3
+#define EEPROM_CMD_NOT_FOUND -4
+#define UNEXPECTED_CMD_ARGUMENT -5
+
+  String errorDesc( const String& context, int errorCode ) {
+    String rtn(context);
+    rtn += (errorCode == CMD_OK ? F(" OK: ") : F(" ERROR: "));
+    switch ( errorCode ) {
+      case CMD_ERROR:
+        rtn += F("CMD_ERROR");
+        break;
+      case INDEX_OUT_OF_BOUNDS:
+        rtn += F("INDEX_OUT_OF_BOUNDS");
+        break;
+      case EEPROM_CMD_ARRAY_FULL:
+        rtn += F("EEPROM_CMD_ARRAY_FULL");
+        break;
+      case EEPROM_CMD_NOT_FOUND:
+        rtn += F("EEPROM_CMD_NOT_FOUND");
+        break;
+      case UNEXPECTED_CMD_ARGUMENT:
+        rtn += F("UNEXPECTED_CMD_ARGUMENT");
+        break;
+      default:
+        ;
+    };
+    rtn += F("(");
+    rtn += errorCode;
+    rtn += F(")");
+    return rtn;
+  }
 
 }
 #endif //ARDUINO_SOLAR_SKETCH_ARDUINO_H
