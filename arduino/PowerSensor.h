@@ -41,10 +41,10 @@ namespace arduino {
       w.increaseDepth();
       w.printlnStringObj(F("name"), name.c_str(), ",");
       w.printKey(F("voltage"));
-      pVoltageSensor->print(depth + 1);
+      pVoltageSensor->printVerbose(depth + 1);
       w.noPrefixPrintln(",");
       w.printKey(F("current"));
-      pCurrentSensor->print(depth + 1);
+      pCurrentSensor->printVerbose(depth + 1);
       w.noPrefixPrintln(",");
       w.printlnNumberObj(F("value"), getValue());
       w.decreaseDepth();

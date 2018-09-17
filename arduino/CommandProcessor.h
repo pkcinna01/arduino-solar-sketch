@@ -178,7 +178,7 @@ namespace arduino {
     int processGetCommand() {
       int respCode = 0;
       const char *pszArg;
-      while ((pszArg = strtok(NULL, ", \r\n")) != nullptr) {
+      while ((pszArg = strtok(NULL, ", ")) != nullptr) {
         if (!strcmp_P(pszArg, PSTR("ENV"))) {
           writer.printKey("env");
           writer.println("{");
@@ -201,9 +201,15 @@ namespace arduino {
         } else if (!strcmp_P(pszArg, PSTR("OUTPUT_FORMAT"))) {
           writer.printlnStringObj(F("outputFormat"), formatAsString(arduino::jsonFormat), ",");
         } else if (!strcmp_P(pszArg, PSTR("SENSORS"))) {
-          writer.printlnVectorObj(F("sensors"), sensors, ",");
+          const char* pszCommaDelimitedNames = strtok(NULL,"\r\n");
+          Sensors filteredSensors;
+          sensors.filterByNames(pszCommaDelimitedNames,filteredSensors);
+          writer.printlnVectorObj(F("sensors"), filteredSensors, ",");
         } else if (!strcmp_P(pszArg, PSTR("DEVICES"))) {
-          writer.printlnVectorObj(F("devices"), devices, ",");
+          const char* pszCommaDelimitedNames = strtok(NULL,"\r\n");
+          Devices filteredDevices;
+          devices.filterByNames(pszCommaDelimitedNames,filteredDevices);
+          writer.printlnVectorObj(F("devices"), filteredDevices, ",");
         } else if (!strcmp_P(pszArg, PSTR("TIME"))) {
           time_t t = now();
           writer.printKey("time");
@@ -268,27 +274,25 @@ namespace arduino {
         stringstream ss;
         bool bUpdated = false;
         const char *pszTargetState = strtok(NULL, ", \r\n");
-        for (Device *pDevice : devices) {
-          if (pDevice->name == pszDeviceName || !strcmp_P(pszDeviceName, PSTR("*"))) {
-            bUpdated |= findAndSetCapability(pDevice->capabilities, pszCapabilityType, pszTargetState, ss);
-          }
+        Devices filteredDevices;
+        devices.filterByNames(pszDeviceName,filteredDevices);
+        for (Device *pDevice : filteredDevices) {
+          bUpdated |= findAndSetCapability(pDevice->capabilities, pszCapabilityType, pszTargetState, ss);
         }
         if (bUpdated) {
           writer + ss.str().c_str();
-
-          // do persist?
         }
       } else if (!strcmp_P(pszArg, PSTR("DEVICE_MODE"))) {
         const char *pszDeviceName = strtok(NULL, ",\r\n");
         const char *pszMode = strtok(NULL, ", \r\n"); // OFF,ON,AUTO... i.e.  a cooling fan
                                                       // will always be off, on, or applyConstraint will determine on/off
                                                       // dynamically based on temperature sensors child constraints.
+        Devices filteredDevices;
+        devices.filterByNames(pszDeviceName,filteredDevices);
         stringstream ss;
         bool bUpdated = false;
-        for (Device *pDevice: devices ) {
-          if (!pDevice->pConstraint)
-            continue;
-          if (!strcmp(pDevice->name.c_str(), pszDeviceName) || !strcmp_P(pszDeviceName, PSTR("*"))) {
+        for (Device *pDevice: filteredDevices ) {
+          if (pDevice->pConstraint) {
             Constraint::Mode mode = Constraint::parseMode(pszMode);
             pDevice->pConstraint->mode = mode;
             pDevice->applyConstraint();
@@ -302,7 +306,6 @@ namespace arduino {
         }
         if (bUpdated) {
           writer + ss.str().c_str();
-          // do persist?
         } else {
           writer + F("No device mode updates.  Device name filter: ");
           writer + pszDeviceName;

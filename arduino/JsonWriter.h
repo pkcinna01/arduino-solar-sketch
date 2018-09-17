@@ -255,26 +255,39 @@ class JsonWriter
     return *this;
   }
 
-  template<typename TKey, typename TArray>
-  JsonWriter& printVectorObj(TKey k, TArray arr, const char* suffix = "" )
-  {
+  template<typename TKey, typename TIterator>
+  JsonWriter& printIteratorObj(TKey k, TIterator itr, TIterator endItr, const char* suffix = "" ) {
     printKey(k);
     noPrefixPrintln("[");
 
     bool bFirst = true;
-    for( auto obj : arr )
+    while( itr != endItr )
     {
       if ( bFirst ) {
         bFirst = false;
       } else {
         noPrefixPrintln(",");
       }
-      obj->print(depth+1);
+      (*itr)->print(depth+1);
+      itr++;
     };
     println();
     print("]");
     noPrefixPrint(suffix);
     return *this;
+  }
+
+  template<typename TKey, typename TIterator>
+  JsonWriter& printlnIteratorObj(TKey k, TIterator itr, TIterator endItr, const char* suffix = "" ) {
+    printIteratorObj(k,itr,endItr,suffix);
+    println();
+    return *this;
+  }
+
+  template<typename TKey, typename TArray>
+  JsonWriter& printVectorObj(TKey k, TArray arr, const char* suffix = "" )
+  {
+    return printIteratorObj(k,arr.begin(),arr.end(),suffix);
   }
 
   template<typename TKey, typename TArray>

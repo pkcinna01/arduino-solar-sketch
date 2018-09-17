@@ -37,7 +37,7 @@ void CompositeSensor::printVerbose(int depth)
         } else {
             w.noPrefixPrintln(",");
         }
-        s->print(depth+2);
+        s->printVerbose(depth+2);
     }
     w.decreaseDepth();
     w.noPrefixPrintln("");

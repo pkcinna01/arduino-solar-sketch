@@ -24,5 +24,8 @@ namespace automation {
     return it == sensors.end() ? 0 : (*it)->getValue();
   }
 
+  float Sensor::delta(const vector<Sensor*>& sensors) {
+    return sensors[0]->getValue() - sensors[1]->getValue();
+  }
 }
 

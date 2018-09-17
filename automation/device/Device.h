@@ -21,7 +21,7 @@ namespace automation {
     vector<Capability *> capabilities;
 
     Device(const string &name) :
-        name(name), pConstraint(&FAIL_CONSTRAINT) {
+        name(name), pConstraint(nullptr) {
     }
 
     virtual void applyConstraint(bool bIgnoreSameState = true, Constraint *pConstraint = nullptr) {
@@ -70,14 +70,12 @@ namespace automation {
     bool bConstraintPassed = false;
   };
 
-  class Devices : public vector<Device*> {
+
+  class Devices : public AutomationVector<Device*> {
   public:
-    Devices( vector<Device*>& devices )
-      : vector<Device*>(devices) {
-    }
-    Devices( vector<Device*> devices )
-        : vector<Device*>(devices) {
-    }
+    Devices(){}
+    Devices( vector<Device*>& devices ) : AutomationVector<Device*>(devices) {}
+    Devices( vector<Device*> devices ) : AutomationVector<Device*>(devices) {}
   };
 
 

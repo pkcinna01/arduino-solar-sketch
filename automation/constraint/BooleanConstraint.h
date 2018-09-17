@@ -22,8 +22,8 @@ namespace automation {
     }
   };
 
-  BooleanConstraint FAIL_CONSTRAINT(false);
-  BooleanConstraint PASS_CONSTRAINT(true);
+  const BooleanConstraint FAIL_CONSTRAINT(false);
+  const BooleanConstraint PASS_CONSTRAINT(true);
 
 }
 #endif //SOLAR_IFTTT_BOOLEANCONSTRAINT_H

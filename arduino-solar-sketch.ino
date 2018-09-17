@@ -1,7 +1,4 @@
-//
-// Change version if code changes impact data structures in EEPROM.
-// A version change will reset EEPROM data to defaults.
-//
+
 #define VERSION "SOLAR-1.0"
 #define BUILD_NUMBER 1
 #define BUILD_DATE __DATE__
@@ -62,8 +59,9 @@ Dht dht(5);
 DhtTempSensor enclosureTemp("Enclosure Temp",dht);
 DhtHumiditySensor enclosureHumidity("Enclosure Humidity",dht);
 VoltageSensor batteryBankVoltage("Battery Bank Voltage", 9, 1016000,101100);
-//VoltageSensor batteryBankVoltage2("Battery Bank Voltage2", 10, 1016000,101100);
-
+VoltageSensor batteryBankAVoltage("Battery Bank A Voltage", 10, 1016000,101100);
+vector<Sensor*> mainAndBankADelta { &batteryBankVoltage, &batteryBankAVoltage };
+CompositeSensor batteryBankBVoltage("Battery Bank B Voltage", mainAndBankADelta, Sensor::delta);
 CurrentSensor batteryBankCurrent("Battery Bank Current");
 PowerSensor batteryBankPower("Battery Bank Power", &batteryBankVoltage, &batteryBankCurrent);
 vector<Sensor*> chargerGrpSensors { &charger1Temp, &charger2Temp };
@@ -89,10 +87,19 @@ struct MaxBatteryBankPower : MaxConstraint<float,Sensor&> {
 };
 
 struct InverterSwitch : public arduino::PowerSwitch {
+  BooleanConstraint defaultOff {false};
   InverterSwitch() : arduino::PowerSwitch("Inverter Switch", 25, LOW) {
-    //setConstraint(&minBatteryBankVoltage);
+    setConstraint(&defaultOff);
   }
 } inverterSwitch;
+
+struct BatteryBankSwitch : public arduino::PowerSwitch {
+  BooleanConstraint defaultOff {false};
+  BatteryBankSwitch(const char* title, int pin) : arduino::PowerSwitch(title, pin, LOW) {
+    setConstraint(&defaultOff);
+  }
+};
+struct BatteryBankSwitch batteryBankASwitch("Battery Bank A Switch", 26), batteryBankBSwitch("Battery Bank B Switch", 27);
 
 struct OutletSwitch : public arduino::PowerSwitch {
   struct MaxBatteryBankPower maxBatteryBankPower {1400};
@@ -111,10 +118,12 @@ struct Outlet2Switch : public OutletSwitch {
 } outlet2Switch;
 
 
-Devices devices {{ &exhaustFan, &chargerGroupFan, &inverterFan, &inverterSwitch }};
+Devices devices {{ &exhaustFan, &chargerGroupFan, &inverterFan, &inverterSwitch, &batteryBankASwitch, &batteryBankBSwitch }};
+
 Sensors sensors {{ 
     &chargerGroupTemp, 
     &batteryBankVoltage, &batteryBankCurrent, &batteryBankPower,
+    &batteryBankAVoltage,&batteryBankBVoltage,
     &charger1Temp, &charger2Temp, &inverterTemp, &sunroomTemp, &atticTemp, 
     &enclosureTemp, &enclosureHumidity, 
     &exhaustFan.toggleSensor, &chargerGroupFan.toggleSensor, 

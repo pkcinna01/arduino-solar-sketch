@@ -100,20 +100,21 @@ namespace arduino {
       return CMD_OK;
     }
 
-    int findCommandStartingWith(const char* cmdBase) {
+    int findCommand(const char* searchPattern) {
       size_t cmdCnt = getCommandCount();
       for( int i = 0; i < cmdCnt; i++ ) {
         String cmd;
         getCommandAt(i,cmd);
-        if ( cmd.startsWith(cmdBase) ) {
+
+        if ( automation::WildcardMatcher::test(searchPattern,cmd.c_str()) ) {
           return i;
         }
       }
       return EEPROM_CMD_NOT_FOUND;
     }
 
-    int removeCommand(const char* cmdBase) {
-      int index = findCommandStartingWith(cmdBase);
+    int removeCommand(const char* searchPattern) {
+      int index = findCommand(searchPattern);
       if ( index != EEPROM_CMD_NOT_FOUND ) {
         return removeCommandAt(index);
       } else {
