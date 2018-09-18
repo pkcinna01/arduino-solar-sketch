@@ -12,7 +12,10 @@ class DhtHumiditySensor : public DhtSensor {
   }
 
   float getValueImpl() const override {
-    return dht.readHumidity();
+    if ( isCacheExpired() ) {
+      cacheValue(dht.readHumidity());
+    } 
+    return cachedValue;
   }
 };
 

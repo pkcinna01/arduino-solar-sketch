@@ -14,7 +14,7 @@ namespace automation {
   public:
 
     Sensor& tempSensor;
-    MinConstraint<float,Sensor&> minTemp;
+    MinConstraint<float,Sensor&> minTemp; // any temp greater than this min will PASS (turn fan on)
 
     CoolingFan(const string &name, Sensor& tempSensor, float onTemp, float offTemp, unsigned int minDurationMs=0) :
         PowerSwitch(name),

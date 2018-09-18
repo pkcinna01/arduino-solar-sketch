@@ -51,17 +51,17 @@ ThermistorSensor charger1Temp("Charger 1 Temp",0),
                  charger2Temp("Charger 2 Temp",1),
                  sunroomTemp("Sunroom Temp",2),
                  atticTemp("Attic Temp",3),
-                 inverterTemp("Inverter Temp",5);
+                 inverterTemp("Inverter Temp",4);
 
-LightSensor lightLevel("Sunshine Level",6);                 
+LightSensor lightLevel("Sunshine Level",5);                 
                 
 Dht dht(5);
 DhtTempSensor enclosureTemp("Enclosure Temp",dht);
 DhtHumiditySensor enclosureHumidity("Enclosure Humidity",dht);
 VoltageSensor batteryBankVoltage("Battery Bank Voltage", 9, 1016000,101100);
-VoltageSensor batteryBankAVoltage("Battery Bank A Voltage", 10, 1016000,101100);
-vector<Sensor*> mainAndBankADelta { &batteryBankVoltage, &batteryBankAVoltage };
-CompositeSensor batteryBankBVoltage("Battery Bank B Voltage", mainAndBankADelta, Sensor::delta);
+VoltageSensor batteryBankBVoltage("Battery Bank B Voltage", 10, 1016000,101100);
+vector<Sensor*> mainAndBankADelta { &batteryBankVoltage, &batteryBankBVoltage };
+CompositeSensor batteryBankAVoltage("Battery Bank A Voltage", mainAndBankADelta, Sensor::delta);
 CurrentSensor batteryBankCurrent("Battery Bank Current");
 PowerSensor batteryBankPower("Battery Bank Power", &batteryBankVoltage, &batteryBankCurrent);
 vector<Sensor*> chargerGrpSensors { &charger1Temp, &charger2Temp };
@@ -69,9 +69,9 @@ CompositeSensor chargerGroupTemp("Charger Group Temp", chargerGrpSensors, Sensor
 
 //TimeRangeConstraint chargerGroupFanEnabledTimeRange( { 8, 0, 0 }, { 18, 30, 0 } );
 
-arduino::CoolingFan exhaustFan("Enclosure Exhaust Fan", 22, enclosureTemp, 90, 89,LOW);
-arduino::CoolingFan chargerGroupFan("Charger Group Fan", 23, chargerGroupTemp, 90, 89,LOW);
-arduino::CoolingFan inverterFan("Inverter Fan", 24, inverterTemp, 90, 89,LOW);
+arduino::CoolingFan exhaustFan("Enclosure Exhaust Fan", 22, enclosureTemp, 95, 90, LOW);
+arduino::CoolingFan chargerGroupFan("Charger Group Fan", 23, chargerGroupTemp, 110, 105, LOW);
+arduino::CoolingFan inverterFan("Inverter Fan", 24, inverterTemp, 110, 105, LOW);
 
 struct MinBatteryBankVoltage : MinConstraint<float,Sensor&> {
   MinBatteryBankVoltage(float volts) : MinConstraint(volts, batteryBankVoltage) {    
@@ -98,8 +98,7 @@ struct BatteryBankSwitch : public arduino::PowerSwitch {
   BatteryBankSwitch(const char* title, int pin) : arduino::PowerSwitch(title, pin, LOW) {
     setConstraint(&defaultOff);
   }
-};
-struct BatteryBankSwitch batteryBankASwitch("Battery Bank A Switch", 26), batteryBankBSwitch("Battery Bank B Switch", 27);
+} batteryBankASwitch("Battery Bank A Switch", 26), batteryBankBSwitch("Battery Bank B Switch", 27);
 
 struct OutletSwitch : public arduino::PowerSwitch {
   struct MaxBatteryBankPower maxBatteryBankPower {1400};
@@ -128,7 +127,8 @@ Sensors sensors {{
     &enclosureTemp, &enclosureHumidity, 
     &exhaustFan.toggleSensor, &chargerGroupFan.toggleSensor, 
     &inverterFan.toggleSensor, &inverterSwitch.toggleSensor,
-    &outlet1Switch.toggleSensor, &outlet2Switch.toggleSensor,
+    &batteryBankASwitch.toggleSensor, &batteryBankBSwitch.toggleSensor,
+    &outlet1Switch.toggleSensor, &outlet2Switch.toggleSensor,    
     &lightLevel
 }};
 

@@ -10,6 +10,10 @@ class DhtSensor : public ArduinoSensor {
   
   Dht& dht;
   
+  mutable float cachedValue;
+
+  mutable unsigned long lastReadTimeMs;
+
   DhtSensor(const char* const name, Dht& dht) :
     ArduinoSensor(name,dht.sensorPin),
     dht(dht)
@@ -21,6 +25,16 @@ class DhtSensor : public ArduinoSensor {
       dht.begin();
       bInitialized = true;
     }
+  }
+
+  bool isCacheExpired() const {
+    return (automation::millisecs() - lastReadTimeMs) > 2100;
+  }
+
+  float cacheValue(float value) const {
+    lastReadTimeMs = automation::millisecs();
+    cachedValue = value;
+    return cachedValue;
   }
   
 };

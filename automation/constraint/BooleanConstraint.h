@@ -22,8 +22,9 @@ namespace automation {
     }
   };
 
-  const BooleanConstraint FAIL_CONSTRAINT(false);
-  const BooleanConstraint PASS_CONSTRAINT(true);
+//TBD - make these const?  what if SET,DEVICE_MODE on one of these and it is shared?
+  BooleanConstraint FAIL_CONSTRAINT(false);
+  BooleanConstraint PASS_CONSTRAINT(true);
 
 }
 #endif //SOLAR_IFTTT_BOOLEANCONSTRAINT_H

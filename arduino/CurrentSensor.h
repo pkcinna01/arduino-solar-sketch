@@ -43,7 +43,7 @@ public:
       channel(channel) {
   }
 
-  virtual void setup() {
+  void setup() override {
     // ads.setGain(GAIN_TWOTHIRDS);  // 2/3x gain +/- 6.144V  1 bit = 0.1875mV (default)
     // ads.setGain(GAIN_ONE);        // 1x gain   +/- 4.096V  1 bit = 0.125mV
     // ads.setGain(GAIN_TWO);        // 2x gain   +/- 2.048V  1 bit = 0.0625mV
@@ -56,11 +56,11 @@ public:
   }
 
   float getValueImpl() const override {
-    float amps = 1; //readAmps();
+    float amps = readAmps();
     return amps;
   }
 
-  virtual float readAmps() {
+  virtual float readAmps() const {
     int16_t shuntADC = readADC();
     float rtnAmps = 0;
 
@@ -71,40 +71,38 @@ public:
       gLastErrorMsg = F("Shunt::readAmps() ADS1115::readADC() returned ");
       gLastErrorMsg += shuntADC;
       gLastErrorMsg += F(". Check connections and pin mappings.");
-      cout << __PRETTY_FUNCTION__ << " Error:" << gLastErrorMsg << endl;
+      //cout << __PRETTY_FUNCTION__ << " Error:" << gLastErrorMsg << endl;
     } else if (shuntADC == INVALID_CHANNEL) {
       gLastErrorMsg = F("Shunt::readAmps() invalid ADS1115 channel: ");
       gLastErrorMsg += channel;
-      cout << __PRETTY_FUNCTION__ << " Error:" << gLastErrorMsg << endl;
+      //cout << __PRETTY_FUNCTION__ << " Error:" << gLastErrorMsg << endl;
     } else {
       // 16x gain  +/- 0.256V  1 bit = 0.125mV  0.0078125mV
       float multiplier = ((float) ratedAmps) / ratedMilliVolts;
       float voltageDrop = ((float) shuntADC * 256.0) / 32768.0;
+      //cout << __PRETTY_FUNCTION__ << " voltage drop from shuntADC: " << voltageDrop << endl;
       rtnAmps = multiplier * voltageDrop;
     }
     return rtnAmps;
   }
 
-  virtual int16_t readADC(int delayMs = 0) {
-    cout << __PRETTY_FUNCTION__ << " begin" << endl;
-    cout << "ads.readADC_SingleEnded(0)=" << ads.readADC_SingleEnded(0) << endl;
+  virtual int16_t readADC(int delayMs = 0) const {
+    //cout << __PRETTY_FUNCTION__ << " begin" << endl;
+    //cout << "ads.readADC_SingleEnded(0)=" << ads.readADC_SingleEnded(0) << endl;
     delay(delayMs);
 
     int16_t adc;
-
+    Adafruit_ADS1115* pAds = (Adafruit_ADS1115*) &ads;
     if (channel >= CHANNEL_A0 && channel <= CHANNEL_A3) {
-      cout << "ads.readADC_SingleEnded(channel) start" << endl;
-      adc = ads.readADC_SingleEnded(channel);
+      adc = pAds->readADC_SingleEnded(channel);
     } else if (channel == DIFFERENTIAL_0_1) {
-      cout << "ads.readADC_Differential_0_1() start" << endl;
-      adc = ads.readADC_Differential_0_1();
+      adc = pAds->readADC_Differential_0_1();
+      //cout << __PRETTY_FUNCTION__ << " adc=" << adc << endl;
     } else if (channel == DIFFERENTIAL_2_3) {
-      cout << "ads.readADC_Differential_2_3() start" << endl;
-      adc = ads.readADC_Differential_2_3();
+      adc = pAds->readADC_Differential_2_3();
     } else {
       adc = INVALID_CHANNEL;
     }
-    cout << __PRETTY_FUNCTION__ << " complete" << endl;
     return adc;
   }
 

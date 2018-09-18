@@ -14,9 +14,14 @@ namespace automation {
     }
 
     bool checkValue() override {
-      auto filter = [](Constraint* pConstraint)->bool{ return !(automation::bSynchronizing && !pConstraint->isSynchronizable()); };
       vector<Constraint*> filteredConstraints;
-      std::copy_if(constraints.begin(), constraints.end(), std::back_inserter(filteredConstraints), filter);
+      //copy_if not supported in ArduinoSTL
+      //auto filter = [](Constraint* pConstraint)->bool{ return !(automation::bSynchronizing && !pConstraint->isSynchronizable()); };
+      //std::copy_if(constraints.begin(), constraints.end(), std::back_inserter(filteredConstraints), filter);
+      for(Constraint* c: constraints){
+        if ( !(automation::bSynchronizing && !c->isSynchronizable()) )
+          filteredConstraints.push_back(c);
+      }
       bool bResult = filteredConstraints.empty();
       for (Constraint *pConstraint : filteredConstraints) {
         if (pConstraint->test()) {
