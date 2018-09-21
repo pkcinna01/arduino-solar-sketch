@@ -1,4 +1,3 @@
-
 #define VERSION "SOLAR-1.0"
 #define BUILD_NUMBER 1
 #define BUILD_DATE __DATE__
@@ -56,12 +55,13 @@ ThermistorSensor charger1Temp("Charger 1 Temp",0),
 LightSensor lightLevel("Sunshine Level",5);                 
                 
 Dht dht(5);
-DhtTempSensor enclosureTemp("Enclosure Temp",dht);
-DhtHumiditySensor enclosureHumidity("Enclosure Humidity",dht);
+DhtTempSensor enclosureTempDht("Enclosure Temp (DHT)",dht);
+ThermistorSensor enclosureTemp("Enclosure Temp", 6);
+DhtHumiditySensor enclosureHumidityDht("Enclosure Humidity",dht);
 VoltageSensor batteryBankVoltage("Battery Bank Voltage", 9, 1016000,101100);
 VoltageSensor batteryBankBVoltage("Battery Bank B Voltage", 10, 1016000,101100);
-vector<Sensor*> mainAndBankADelta { &batteryBankVoltage, &batteryBankBVoltage };
-CompositeSensor batteryBankAVoltage("Battery Bank A Voltage", mainAndBankADelta, Sensor::delta);
+vector<Sensor*> mainAndBankBDelta { &batteryBankVoltage, &batteryBankBVoltage };
+CompositeSensor batteryBankAVoltage("Battery Bank A Voltage", mainAndBankBDelta, Sensor::delta);
 CurrentSensor batteryBankCurrent("Battery Bank Current");
 PowerSensor batteryBankPower("Battery Bank Power", &batteryBankVoltage, &batteryBankCurrent);
 vector<Sensor*> chargerGrpSensors { &charger1Temp, &charger2Temp };
@@ -81,10 +81,10 @@ struct MinBatteryBankVoltage : MinConstraint<float,Sensor&> {
 struct MinBatteryBankVoltage minBatteryBankVoltage(21);
 struct MinBatteryBankVoltage outletsMinBatteryBankVoltage(22);
 
-struct MaxBatteryBankPower : MaxConstraint<float,Sensor&> {
-  MaxBatteryBankPower(float watts) : MaxConstraint(watts, batteryBankPower) {    
-  }
-};
+//struct MaxBatteryBankPower : MaxConstraint<float,Sensor&> {
+//  MaxBatteryBankPower(float watts) : MaxConstraint(watts, batteryBankPower) {    
+//  }
+//};
 
 struct InverterSwitch : public arduino::PowerSwitch {
   BooleanConstraint defaultOff {false};
@@ -101,10 +101,10 @@ struct BatteryBankSwitch : public arduino::PowerSwitch {
 } batteryBankASwitch("Battery Bank A Switch", 26), batteryBankBSwitch("Battery Bank B Switch", 27);
 
 struct OutletSwitch : public arduino::PowerSwitch {
-  struct MaxBatteryBankPower maxBatteryBankPower {1400};
-  AndConstraint constraints { {&outletsMinBatteryBankVoltage, &maxBatteryBankPower} };
+  //struct MaxBatteryBankPower maxBatteryBankPower {1400};
+  //AndConstraint constraints { {&outletsMinBatteryBankVoltage, &maxBatteryBankPower} };
   OutletSwitch(const string& name, int pin, int onValue = HIGH) : arduino::PowerSwitch(name, pin, onValue) {
-    setConstraint(&constraints);
+    setConstraint(&outletsMinBatteryBankVoltage);
   }
 };
 
@@ -123,18 +123,18 @@ Sensors sensors {{
     &chargerGroupTemp, 
     &batteryBankVoltage, &batteryBankCurrent, &batteryBankPower,
     &batteryBankAVoltage,&batteryBankBVoltage,
-    &charger1Temp, &charger2Temp, &inverterTemp, &sunroomTemp, &atticTemp, 
-    &enclosureTemp, &enclosureHumidity, 
+    &atticTemp, &enclosureTemp, &enclosureTempDht, &enclosureHumidityDht, 
+    &charger1Temp, &charger2Temp, &inverterTemp, //&sunroomTemp, 
     &exhaustFan.toggleSensor, &chargerGroupFan.toggleSensor, 
     &inverterFan.toggleSensor, &inverterSwitch.toggleSensor,
-    &batteryBankASwitch.toggleSensor, &batteryBankBSwitch.toggleSensor,
-    &outlet1Switch.toggleSensor, &outlet2Switch.toggleSensor,    
+    //&batteryBankASwitch.toggleSensor, &batteryBankBSwitch.toggleSensor,
+    //&outlet1Switch.toggleSensor, &outlet2Switch.toggleSensor,    
     &lightLevel
 }};
 
 void setup() {
-  //Serial.begin(38400, SERIAL_8O1); // bit usage: 8 data, odd parity, 1 stop
-  Serial.begin(57600);
+  Serial.begin(38400, SERIAL_8O1); // bit usage: 8 data, odd parity, 1 stop
+  //Serial.begin(38400, SERIAL_8N1); 
 
   String version;
   eeprom.getVersion(version);

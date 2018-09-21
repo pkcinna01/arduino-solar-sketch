@@ -15,7 +15,7 @@ class ThermistorSensor : public AnalogSensor {
              float balanceResistance = 9999.0, 
              float roomTempResistance = 10000.0,
              float roomTempKelvin = 298.15):
-    AnalogSensor(name,sensorPin,10,25),
+    AnalogSensor(name,sensorPin,5,40),
     beta(beta),
     balanceResistance(balanceResistance),
     roomTempResistance(roomTempResistance),

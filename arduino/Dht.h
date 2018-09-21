@@ -2,16 +2,21 @@
 #define ARDUINO_DHT_H
 
 #include "Arduino.h"
+#include "Status.h"
 
 #include <DHT.h>
 
 #define FAHRENHEIT true
 
+
 class Dht : public DHT {
   public:
   int sensorPin;
   bool bInitialized;
+  Status status;
   
+  const int16_t RETRY_COUNT = 4, RETRY_WAIT_MS = 200, FAIL_VALUE = 0;
+
   Dht(int sensorPin, int dhtType = DHT22) 
   : DHT(sensorPin,dhtType),
     sensorPin(sensorPin)
@@ -27,29 +32,30 @@ class Dht : public DHT {
 
   virtual float readTemp() 
   {      
+    status.reset();
     float rtn = readTemperature(FAHRENHEIT);
-    for (int i = 0; i < 4 && isnan(rtn); i++ ){
-      automation::sleep(2100);
+    for (int i = 0; i < RETRY_COUNT && isnan(rtn); i++ ){
+      automation::sleep(RETRY_WAIT_MS);
       rtn = readTemperature(FAHRENHEIT);      
-      //cout << __PRETTY_FUNCTION__ << " result=" << rtn << " after NaN reading." << endl;
     }
     if ( isnan(rtn) ) {
-      arduino::gLastErrorMsg = __PRETTY_FUNCTION__;
-      arduino::gLastErrorMsg += " returned NaN after 4 tries";
+      status.error( String(__PRETTY_FUNCTION__) + " returned NaN after " + RETRY_COUNT + " tries");
+      rtn = FAIL_VALUE;
     }
     return rtn;
   }
 
   virtual float readHumidity()
   {
+    status.reset();
     float rtn = DHT::readHumidity();
-    for (int i = 0; i < 3 && isnan(rtn); i++ ){
-      automation::sleep(2100);
+    for (int i = 0; i < RETRY_COUNT && isnan(rtn); i++ ){
+      automation::sleep(RETRY_WAIT_MS);
       rtn = DHT::readHumidity();
     }
     if ( isnan(rtn) ) {
-      arduino::gLastErrorMsg = __PRETTY_FUNCTION__;
-      arduino::gLastErrorMsg += " returned NaN after 4 tries";
+      status.error( String(__PRETTY_FUNCTION__) + " returned NaN after " + RETRY_COUNT + " tries");
+      rtn = FAIL_VALUE;
     }
     return rtn;
   }
@@ -59,14 +65,22 @@ class Dht : public DHT {
     float temp = readTemp();
     float humidity = readHumidity();
     float heatIndex = computeHeatIndex(temp, humidity, FAHRENHEIT);
-    JsonSerialWriter(depth)
-      .println("{")
+    JsonSerialWriter w(depth);
+    w.println("{")
       .increaseDepth()
       .printlnNumberObj(F("temp"),temp,",")
-      .printlnNumberObj(F("humidity"),humidity,",")
-      .printlnNumberObj(F("heatIndex"),heatIndex)
-      .decreaseDepth()
-      .print("}");
+      .printlnNumberObj(F("humidity"),humidity,",");
+    if ( status.code == 0 ) {
+      w.printlnNumberObj(F("heatIndex"),heatIndex);
+    } else {
+      w.printlnNumberObj(F("heatIndex"),heatIndex,",");
+      w.printKey(F("status"));
+      w.noPrefixPrintln("");
+      status.print(depth+1);
+    }
+    w.printlnNumberObj(F("heatIndex"),heatIndex)
+     .decreaseDepth()
+     .print("}");
   }
 };
 #endif

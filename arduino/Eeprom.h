@@ -64,7 +64,7 @@ namespace arduino {
     }
 
     int setCommandAt(int index, const char* cmd) {
-      cout << __PRETTY_FUNCTION__ << " index=" << index << ", cmd=" << cmd << "." << endl;
+      //cout << __PRETTY_FUNCTION__ << " index=" << index << ", cmd=" << cmd << "." << endl;
       if (index >= getCommandCount()) {
         return INDEX_OUT_OF_BOUNDS;
       }
@@ -141,7 +141,7 @@ namespace arduino {
         getCommandAt(i,str);
         w.printStringObj(F("command"), str);
       }
-      w.noPrefixPrintln("");
+      //w.noPrefixPrintln(); bug - this should not cause checksum error
       w.decreaseDepth();
       w.println("]");
       w.decreaseDepth();

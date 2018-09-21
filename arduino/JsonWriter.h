@@ -120,6 +120,14 @@ class JsonWriter
       statefulPrintln(); 
     }
     return *this; 
+  }
+
+  JsonWriter& noPrefixPrintln()
+  { 
+    if ( isPretty() ){
+      statefulPrintln(); 
+    }
+    return *this; 
   } 
 
   // Track indentation for pretty print
@@ -256,7 +264,8 @@ class JsonWriter
   }
 
   template<typename TKey, typename TIterator>
-  JsonWriter& printIteratorObj(TKey k, TIterator itr, TIterator endItr, const char* suffix = "" ) {
+  JsonWriter& printIteratorObj(TKey k, TIterator itr, TIterator endItr, 
+      const char* suffix = "", bool bVerbose = false ) {
     printKey(k);
     noPrefixPrintln("[");
 
@@ -268,32 +277,37 @@ class JsonWriter
       } else {
         noPrefixPrintln(",");
       }
-      (*itr)->print(depth+1);
+      if ( bVerbose ) {
+        (*itr)->printVerbose(depth+1);
+      } else {
+        (*itr)->print(depth+1);
+      }
       itr++;
     };
-    println();
+    noPrefixPrintln();
     print("]");
     noPrefixPrint(suffix);
     return *this;
   }
 
   template<typename TKey, typename TIterator>
-  JsonWriter& printlnIteratorObj(TKey k, TIterator itr, TIterator endItr, const char* suffix = "" ) {
-    printIteratorObj(k,itr,endItr,suffix);
+  JsonWriter& printlnIteratorObj(TKey k, TIterator itr, TIterator endItr, 
+    const char* suffix = "", bool bVerbose = false ) {
+    printIteratorObj(k,itr,endItr,suffix,bVerbose);
     println();
     return *this;
   }
 
   template<typename TKey, typename TArray>
-  JsonWriter& printVectorObj(TKey k, TArray arr, const char* suffix = "" )
+  JsonWriter& printVectorObj(TKey k, TArray arr, const char* suffix = "", bool bVerbose = false )
   {
-    return printIteratorObj(k,arr.begin(),arr.end(),suffix);
+    return printIteratorObj(k,arr.begin(),arr.end(),suffix,bVerbose);
   }
 
   template<typename TKey, typename TArray>
-  JsonWriter& printlnVectorObj(TKey k, TArray arr, const char* suffix = "" )
+  JsonWriter& printlnVectorObj(TKey k, TArray arr, const char* suffix = "", bool bVerbose = false )
   {
-    printVectorObj(k,arr,suffix);
+    printVectorObj(k,arr,suffix,bVerbose);
     println();
     return *this;
   }

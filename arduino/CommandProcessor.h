@@ -70,12 +70,12 @@ namespace arduino {
         if ( respCode == 0 ) {
           respCode = -1;
         }
-        writer.printlnStringObj(F("LastErrorMsg"),gLastErrorMsg,",");
+        writer.printlnStringObj(F("lastErrorMsg"),gLastErrorMsg,",");
         gLastErrorMsg = "";
       }
-      else if ( gLastInfoMsg.length() )
+      if ( gLastInfoMsg.length() )
       {
-        writer.printlnStringObj(F("LastInfoMsg"),gLastInfoMsg,",");
+        writer.printlnStringObj(F("lastInfoMsg"),gLastInfoMsg,",");
         gLastInfoMsg = "";
       }
       writer.printlnNumberObj(F("respCode"), respCode);
@@ -107,16 +107,20 @@ namespace arduino {
       return cmdResult;
     }
 
-    int executeLine(char *pszCmd) {
+    int executeLine(char *pszCmd,bool bVerbose=false) {
       int respCode = 0;
       //cout << __PRETTY_FUNCTION__ << " command: " << pszCmd << "." << endl;
       char *pszCmdName = strtok(pszCmd, ", ");
       if (!strcmp_P(pszCmdName, PSTR("SETUP"))) {
-        respCode = processSetupCommand();
+        respCode = processSetupCommand(bVerbose);
       } else if (!strcmp_P(pszCmdName, PSTR("SET"))) {
-        respCode = processSetCommand();
+        respCode = processSetCommand(bVerbose);
       } else if (!strcmp_P(pszCmdName, PSTR("GET"))) {
-        respCode = processGetCommand();
+        respCode = processGetCommand(bVerbose);
+      } else if (!strcmp_P(pszCmdName, PSTR("VERBOSE"))) {
+        pszCmd = strtok(NULL, "\r\n");
+        bVerbose = true;
+        respCode = executeLine(pszCmd,bVerbose);
       } else {
         beginResp() + F("Expected {GET|SET|SETUP} but found: ") + pszCmdName;
         endResp(UNEXPECTED_CMD_ARGUMENT);
@@ -127,7 +131,7 @@ namespace arduino {
 
   protected:
 
-    int processSetupCommand() {
+    int processSetupCommand(bool bVerbose) {
       int respCode = 0;
       const char *pszAction = strtok(NULL, ", \r\n");
 
@@ -175,13 +179,13 @@ namespace arduino {
       return respCode;
     }
 
-    int processGetCommand() {
+    int processGetCommand(bool bVerbose) {
       int respCode = 0;
       const char *pszArg;
       while ((pszArg = strtok(NULL, ", ")) != nullptr) {
         if (!strcmp_P(pszArg, PSTR("ENV"))) {
           writer.printKey("env");
-          writer.println("{");
+          writer.noPrefixPrintln("{");
           writer.increaseDepth();
           writer.printlnStringObj(F("release"), VERSION, ",")
               .printlnNumberObj(F("buildNumber"), BUILD_NUMBER, ",")
@@ -193,9 +197,12 @@ namespace arduino {
           writer.endStringObj();
           writer.noPrefixPrintln(",");
           writer.printlnStringObj("timeSet", timeStatus() == timeSet ? "YES" : "NO");
+          //writer.printKey(F("eeprom"));
+          //eeprom.print(1);
           writer.decreaseDepth();
           writer.println("},");
-        } else if (!strcmp_P(pszArg, PSTR("SETUP"))) {
+        } else if (!strcmp_P(pszArg, PSTR("SETUP")) || !strcmp_P(pszArg, PSTR("EEPROM"))) {
+          writer.printKey(F("eeprom"));
           eeprom.print(1);
           writer.noPrefixPrintln(",");
         } else if (!strcmp_P(pszArg, PSTR("OUTPUT_FORMAT"))) {
@@ -204,12 +211,12 @@ namespace arduino {
           const char* pszCommaDelimitedNames = strtok(NULL,"\r\n");
           Sensors filteredSensors;
           sensors.filterByNames(pszCommaDelimitedNames,filteredSensors);
-          writer.printlnVectorObj(F("sensors"), filteredSensors, ",");
+          writer.printlnVectorObj(F("sensors"), filteredSensors, ",",bVerbose);
         } else if (!strcmp_P(pszArg, PSTR("DEVICES"))) {
           const char* pszCommaDelimitedNames = strtok(NULL,"\r\n");
           Devices filteredDevices;
           devices.filterByNames(pszCommaDelimitedNames,filteredDevices);
-          writer.printlnVectorObj(F("devices"), filteredDevices, ",");
+          writer.printlnVectorObj(F("devices"), filteredDevices, ",",bVerbose);
         } else if (!strcmp_P(pszArg, PSTR("TIME"))) {
           time_t t = now();
           writer.printKey("time");
@@ -228,6 +235,7 @@ namespace arduino {
           beginResp();
           writer + F("GET command expected {SENSORS|DEVICES|OUTPUT_FORMAT|TIME|ENV|SETUP} but found: '") + pszArg + "'.";
           respCode = UNEXPECTED_CMD_ARGUMENT;
+          break;
         }
       }
       if (!respCode) {
@@ -238,7 +246,7 @@ namespace arduino {
       return respCode;
     }
 
-    int processSetCommand() {
+    int processSetCommand(bool bVerbose) {
       int respCode = 0;
 
       beginResp();

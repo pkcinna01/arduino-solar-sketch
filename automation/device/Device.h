@@ -48,6 +48,7 @@ namespace automation {
     virtual void constraintResultChanged(bool bConstraintResult) = 0;
 
     virtual void print(int depth = 0);
+    virtual void printVerbose(int depth = 0 ) { print(depth); }
 
     virtual bool testConstraint() {
       return pConstraint ? pConstraint->test() : true;

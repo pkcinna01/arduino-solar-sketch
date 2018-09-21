@@ -93,6 +93,7 @@ namespace automation {
     }
 
     virtual void print(int depth);
+    virtual void printVerbose(int depth = 0 ) { print(depth); }
 
     friend std::ostream &operator<<(std::ostream &os, const Capability &c) {
       os << c.getTitle() << " = " << c.asString();

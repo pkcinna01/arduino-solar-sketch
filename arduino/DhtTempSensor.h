@@ -11,9 +11,10 @@ class DhtTempSensor : public DhtSensor {
   {    
   }
 
-  float getValueImpl() const override {
-    if ( isCacheExpired() ) {
+  float getValueImpl() const override {    
+    if ( isCacheExpired() || status.code != 0 ) {
       cacheValue(dht.readTemp());
+      status = dht.status;
     } 
     return cachedValue;
   }
