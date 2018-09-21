@@ -75,8 +75,8 @@ public:
       status.msg += channel;
       rtnAmps = FAIL_RETURN_VALUE;
     } else {
-      double voltageDrop = shuntADC * getMilliVoltIncrement();
-      rtnAmps = (voltageDrop / getRatedMilliOhms())*1000.0;
+      double milliVolts = shuntADC * getMilliVoltIncrement();
+      rtnAmps = milliVolts / getRatedMilliOhms();
     }
     return rtnAmps;
   }
@@ -112,13 +112,13 @@ public:
     // GAIN_EIGHT      8x gain   +/- 0.512V  1 bit = 0.015625mV
     // GAIN_SIXTEEN   16x gain   +/- 0.256V  1 bit = 0.0078125mV
     switch (gain) {
-      case GAIN_ONE: return 0.000125;
-      case GAIN_TWO: return 0.0000625;
-      case GAIN_FOUR: return 0.00003125;
-      case GAIN_EIGHT: return 0.000015625;
-      case GAIN_SIXTEEN: return 0.0000078125;
+      case GAIN_ONE: return 0.125;
+      case GAIN_TWO: return 0.0625;
+      case GAIN_FOUR: return 0.03125;
+      case GAIN_EIGHT: return 0.015625;
+      case GAIN_SIXTEEN: return 0.0078125;
       case GAIN_TWOTHIRDS: 
-      default: return 0.0001875;
+      default: return 0.1875;
     }
   }
 
