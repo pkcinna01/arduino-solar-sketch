@@ -109,15 +109,20 @@ struct OutletSwitch : public arduino::PowerSwitch {
 };
 
 struct Outlet1Switch : public OutletSwitch {
-  Outlet1Switch() : OutletSwitch("Outlet 1 Switch", 26) {}
+  Outlet1Switch() : OutletSwitch("Outlet 1 Switch", 30) {}
 } outlet1Switch;
 
 struct Outlet2Switch : public OutletSwitch {
-  Outlet2Switch() : OutletSwitch("Outlet 2 Switch", 27) {}
+  Outlet2Switch() : OutletSwitch("Outlet 2 Switch", 31) {}
 } outlet2Switch;
 
 
-Devices devices {{ &exhaustFan, &chargerGroupFan, &inverterFan, &inverterSwitch, &batteryBankASwitch, &batteryBankBSwitch }};
+Devices devices {{ 
+    &exhaustFan, &chargerGroupFan, &inverterFan, 
+    &inverterSwitch, 
+    &batteryBankASwitch, &batteryBankBSwitch, 
+    &outlet1Switch, &outlet2Switch
+}};
 
 Sensors sensors {{ 
     &chargerGroupTemp, 
@@ -128,7 +133,7 @@ Sensors sensors {{
     &exhaustFan.toggleSensor, &chargerGroupFan.toggleSensor, 
     &inverterFan.toggleSensor, &inverterSwitch.toggleSensor,
     //&batteryBankASwitch.toggleSensor, &batteryBankBSwitch.toggleSensor,
-    //&outlet1Switch.toggleSensor, &outlet2Switch.toggleSensor,    
+    &outlet1Switch.toggleSensor, &outlet2Switch.toggleSensor,    
     &lightLevel
 }};
 
@@ -199,7 +204,7 @@ void loop() {
     } 
   }
 
-  if ( cmdReady || (currentTimeMs - lastUpdateTimeMs) > updateIntervalMs )
+  if ( cmdReady && strlen(commandBuff) || (currentTimeMs - lastUpdateTimeMs) > updateIntervalMs )
   {
     for(Device* pDevice : devices) {
       pDevice->applyConstraint(false);
@@ -221,22 +226,26 @@ void loop() {
     writer.implPrint(F("#BEGIN:"));
     writer.implPrint(requestId);
     writer.implPrintln("#");
-    writer.println( "{" );
+    writer.println( "[" );
     writer.increaseDepth();
     CommandProcessor<JsonSerialWriter> cmdProcessor(writer,sensors,devices);
 
     
     if ( msgReadTimedOut ) 
     {
+      writer.println("{");
       cmdProcessor.beginResp();
       writer + F("Serial data read timed out.  Bytes received: ") + bytesRead;
       cmdProcessor.endResp(101);
+      writer.println("}");
     }
     else if ( msgSizeExceeded )
     {
+      writer.println("{");
       cmdProcessor.beginResp();
       writer + F("Request exceeded maximum size. Bytes read: ") + bytesRead;
       cmdProcessor.endResp(102);
+      writer.println("}");
     }
     else
     {
@@ -244,7 +253,7 @@ void loop() {
     }
     
     writer.decreaseDepth();
-    writer.print("}");
+    writer.print("]");
     writer.implPrint(F("\n#END:"));
     writer.implPrint(requestId);
     writer.implPrint(":");

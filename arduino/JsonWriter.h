@@ -239,17 +239,14 @@ class JsonWriter
   JsonWriter& printArrayObj(TKey k, TArray arr, const char* suffix = "" ) 
   {
     printKey(k);
-    noPrefixPrintln("[");
+    noPrefixPrint("[");
 
     for( int i = 0; arr[i] != NULL; i++ )
     {
-      if ( i != 0 )
-      {
-        noPrefixPrintln(",");
-      }
+      noPrefixPrintln( i != 0 ? "," : "" );
       arr[i]->print(depth+1);
     };
-    println();
+    noPrefixPrintln();
     print("]");
     noPrefixPrint(suffix);
     return *this;
@@ -267,13 +264,14 @@ class JsonWriter
   JsonWriter& printIteratorObj(TKey k, TIterator itr, TIterator endItr, 
       const char* suffix = "", bool bVerbose = false ) {
     printKey(k);
-    noPrefixPrintln("[");
+    noPrefixPrint("[");
 
     bool bFirst = true;
     while( itr != endItr )
     {
       if ( bFirst ) {
         bFirst = false;
+        noPrefixPrintln();
       } else {
         noPrefixPrintln(",");
       }

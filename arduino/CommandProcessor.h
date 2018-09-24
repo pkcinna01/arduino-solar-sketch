@@ -87,12 +87,14 @@ namespace arduino {
       int cmdCnt = 0;
 
       size_t scriptLen = strlen(pszScript);
-      char *pszCmd = strtok(pszScript, "\r\n");
+      char *pszCmd = strtok(pszScript, ";\r\n");
       size_t nextIndex = 0;
 
       while (pszCmd) {
-        cmdCnt++;
         int cmdLen = strlen(pszCmd); // need length before strtok alters content
+        if ( cmdCnt++ > 0 ) {
+          writer.println(",");
+        }
         int cmdResult = executeLine(pszCmd);
         if (cmdResult) {
           break;
@@ -104,6 +106,7 @@ namespace arduino {
           pszCmd = strtok(&pszScript[nextIndex], "\r\n");
         }
       }
+      writer.println();
       return cmdResult;
     }
 
@@ -117,12 +120,14 @@ namespace arduino {
         respCode = processSetCommand(bVerbose);
       } else if (!strcmp_P(pszCmdName, PSTR("GET"))) {
         respCode = processGetCommand(bVerbose);
+      } else if (!strcmp_P(pszCmdName, PSTR("FILTER"))) {
+        respCode = processFilterCommand(bVerbose);
       } else if (!strcmp_P(pszCmdName, PSTR("VERBOSE"))) {
         pszCmd = strtok(NULL, "\r\n");
         bVerbose = true;
         respCode = executeLine(pszCmd,bVerbose);
       } else {
-        beginResp() + F("Expected {GET|SET|SETUP} but found: ") + pszCmdName;
+        beginResp() + F("Expected {GET|FILTER|SET|SETUP} but found: ") + pszCmdName;
         endResp(UNEXPECTED_CMD_ARGUMENT);
       }
       return respCode;
@@ -134,6 +139,8 @@ namespace arduino {
     int processSetupCommand(bool bVerbose) {
       int respCode = 0;
       const char *pszAction = strtok(NULL, ", \r\n");
+
+      writer.println("{").increaseDepth();
 
       beginResp();
 
@@ -176,12 +183,17 @@ namespace arduino {
         respCode = UNEXPECTED_CMD_ARGUMENT;
       }
       endResp(respCode);
+      
+      writer.decreaseDepth().print("}");
       return respCode;
     }
 
     int processGetCommand(bool bVerbose) {
       int respCode = 0;
       const char *pszArg;
+
+      writer.println("{").increaseDepth();
+
       while ((pszArg = strtok(NULL, ", ")) != nullptr) {
         if (!strcmp_P(pszArg, PSTR("ENV"))) {
           writer.printKey("env");
@@ -208,15 +220,9 @@ namespace arduino {
         } else if (!strcmp_P(pszArg, PSTR("OUTPUT_FORMAT"))) {
           writer.printlnStringObj(F("outputFormat"), formatAsString(arduino::jsonFormat), ",");
         } else if (!strcmp_P(pszArg, PSTR("SENSORS"))) {
-          const char* pszCommaDelimitedNames = strtok(NULL,"\r\n");
-          Sensors filteredSensors;
-          sensors.filterByNames(pszCommaDelimitedNames,filteredSensors);
-          writer.printlnVectorObj(F("sensors"), filteredSensors, ",",bVerbose);
+          writer.printlnVectorObj(F("sensors"), sensors, ",",bVerbose);
         } else if (!strcmp_P(pszArg, PSTR("DEVICES"))) {
-          const char* pszCommaDelimitedNames = strtok(NULL,"\r\n");
-          Devices filteredDevices;
-          devices.filterByNames(pszCommaDelimitedNames,filteredDevices);
-          writer.printlnVectorObj(F("devices"), filteredDevices, ",",bVerbose);
+          writer.printlnVectorObj(F("devices"), devices, ",",bVerbose);
         } else if (!strcmp_P(pszArg, PSTR("TIME"))) {
           time_t t = now();
           writer.printKey("time");
@@ -243,6 +249,39 @@ namespace arduino {
         writer + "OK";
       }
       endResp(respCode);
+
+      writer.decreaseDepth().print("}");
+      return respCode;
+    }
+
+    int processFilterCommand(bool bVerbose) {
+      int respCode = 0;
+      const char* pszArg = strtok(NULL, ", ");
+
+      writer.println("{").increaseDepth();
+
+      if (!strcmp_P(pszArg, PSTR("SENSORS"))) {
+        const char* pszCommaDelimitedNames = strtok(NULL,"\r\n");
+        Sensors filteredSensors;
+        sensors.filterByNames(pszCommaDelimitedNames,filteredSensors);
+        writer.printlnVectorObj(F("sensors"), filteredSensors, ",",bVerbose);
+      } else if (!strcmp_P(pszArg, PSTR("DEVICES"))) {
+        const char* pszCommaDelimitedNames = strtok(NULL,"\r\n");
+        Devices filteredDevices;
+        devices.filterByNames(pszCommaDelimitedNames,filteredDevices);
+        writer.printlnVectorObj(F("devices"), filteredDevices, ",",bVerbose);
+      } else {
+        beginResp();
+        writer + F("FILTER command expected {SENSORS|DEVICES} but found: '") + pszArg + "'.";
+        respCode = UNEXPECTED_CMD_ARGUMENT;
+      }
+      if (!respCode) {
+        beginResp();
+        writer + "OK";
+      }
+      endResp(respCode);
+
+      writer.decreaseDepth().print("}");
       return respCode;
     }
 
@@ -251,6 +290,8 @@ namespace arduino {
 
       beginResp();
       const char *pszArg = strtok(NULL, ", ");
+
+      writer.println("{").increaseDepth();
 
       if (!strcmp_P(pszArg, PSTR("OUTPUT_FORMAT"))) {
         const char *pszFormat = strtok(NULL, ", \r\n");
@@ -262,8 +303,8 @@ namespace arduino {
           writer + F("Expected JSON_COMPACT|JSON_PRETTY but found: ") + pszFormat;
           respCode = 301;
         }
-
       } else if (!strcmp_P(pszArg, PSTR("TIME_T"))) {
+        
         const char *pszDateTime = strtok(NULL, ", ");
         time_t time = atol(pszDateTime);
         setTime(time);
@@ -327,6 +368,8 @@ namespace arduino {
         respCode = UNEXPECTED_CMD_ARGUMENT;
       }
       endResp(respCode);
+
+      writer.decreaseDepth().print("}");
       return respCode;
     }
 
