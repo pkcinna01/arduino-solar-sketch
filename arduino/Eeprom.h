@@ -96,6 +96,7 @@ namespace arduino {
         cmdCnt++;
         setCommandCount(cmdCnt);
         setCommandAt(cmdCnt-1,cmd);
+        cout << __PRETTY_FUNCTION__ << " added command '" << cmd << "' at index " << cmdCnt-1 << endl;        
       }
       return CMD_OK;
     }
@@ -124,7 +125,13 @@ namespace arduino {
 
     void print(int depth=0) {
       JsonSerialWriter w(depth);
-      w.println("{");
+      w.print("");
+      noPrefixPrint(depth);
+    }
+
+    void noPrefixPrint(int depth=0) {
+      JsonSerialWriter w(depth);
+      w.noPrefixPrintln("{");
       w.increaseDepth();
       String str;
       w.printlnStringObj(F("version"), getVersion(str), ",");

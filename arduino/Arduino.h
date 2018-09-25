@@ -14,6 +14,15 @@ namespace arduino {
 
   JsonFormat jsonFormat = JSON_FORMAT_PRETTY;
 
+  JsonFormat parseFormat( const char* pszFormat) {
+    if (!strcmp_P(pszFormat, PSTR("JSON_COMPACT"))) {
+      return JSON_FORMAT_COMPACT;
+    } else if (!strcmp_P(pszFormat, PSTR("JSON_PRETTY"))) {
+      return JSON_FORMAT_PRETTY;
+    } else {
+      return JSON_FORMAT_INVALID;
+    }
+  }
 
   String formatAsString(JsonFormat fmt)
   {

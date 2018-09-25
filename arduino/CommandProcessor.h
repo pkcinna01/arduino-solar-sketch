@@ -38,8 +38,7 @@ namespace arduino {
           devices(devices) {
     }
 
-    void runSetup() {
-      writer + "{\n";
+    int runSetup() {
       int cmdCnt = eeprom.getCommandCount();
       for ( int i = 0; i < cmdCnt; i++ ) {
         String cmd;
@@ -48,9 +47,12 @@ namespace arduino {
           char cmdBuff[CMD_ARR_MAX_ROW_LENGTH];
           strcpy(cmdBuff, cmd.c_str());
           respCode = executeLine(cmdBuff);
+          if ( respCode != CMD_OK ) {
+            return respCode;
+          }
         }
       }
-      writer + "}\n";
+      return CMD_OK;
     }
 
     T &beginResp() {
@@ -93,7 +95,7 @@ namespace arduino {
       while (pszCmd) {
         int cmdLen = strlen(pszCmd); // need length before strtok alters content
         if ( cmdCnt++ > 0 ) {
-          writer.println(",");
+          writer.noPrefixPrintln(",");
         }
         int cmdResult = executeLine(pszCmd);
         if (cmdResult) {
@@ -103,7 +105,7 @@ namespace arduino {
         if ( nextIndex >= scriptLen ) {
           break;
         } else {
-          pszCmd = strtok(&pszScript[nextIndex], "\r\n");
+          pszCmd = strtok(&pszScript[nextIndex], ";\r\n");
         }
       }
       writer.println();
@@ -140,11 +142,30 @@ namespace arduino {
       int respCode = 0;
       const char *pszAction = strtok(NULL, ", \r\n");
 
+      if (!strcmp_P(pszAction, PSTR("RUN"))) {
+        return runSetup();
+      }
+
       writer.println("{").increaseDepth();
 
       beginResp();
 
-      if (!strcmp_P(pszAction, PSTR("ADD"))) {
+      if (!strcmp_P(pszAction, PSTR("SET"))) {  
+        const char *pszField = strtok(NULL,", ");
+        if ( !strcmp_P(pszField, PSTR("OUTPUT_FORMAT"))) {
+          const char *pszFormat = strtok(NULL, ", \r\n");
+          JsonFormat fmt = arduino::parseFormat(pszFormat);
+          if ( fmt != JSON_FORMAT_INVALID ) {
+            eeprom.setJsonFormat(fmt);
+          } else {
+            writer + F("Expected JSON_COMPACT|JSON_PRETTY but found: ") + pszFormat;
+            respCode = UNEXPECTED_CMD_ARGUMENT;
+          }
+        } else {
+          writer + F("Expected SET field {OUTPUT_FORMAT} but found: ") + pszField;
+          respCode = UNEXPECTED_CMD_ARGUMENT;
+        }
+      } else if (!strcmp_P(pszAction, PSTR("ADD"))) {
         const char *pszCmd = strtok(NULL,"\r\n");
         respCode = eeprom.addCommand(pszCmd);
         if ( respCode != CMD_OK ) {
@@ -165,13 +186,6 @@ namespace arduino {
           writer + errorDesc(F("SETUP,REMOVE"),respCode);
         }
       } else if (!strcmp_P(pszAction, PSTR("REMOVE_AT"))) {
-        const char* pszIndex = strtok(NULL, ",\r\n");
-        int index = atoi(pszIndex);
-        respCode = eeprom.removeCommandAt(index);
-        if ( respCode != CMD_OK ) {
-          writer + errorDesc(F("SETUP,REMOVE_AT"),respCode);
-        }
-      } else if (!strcmp_P(pszAction, PSTR("RUN"))) {
         const char* pszIndex = strtok(NULL, ",\r\n");
         int index = atoi(pszIndex);
         respCode = eeprom.removeCommandAt(index);
@@ -215,7 +229,7 @@ namespace arduino {
           writer.println("},");
         } else if (!strcmp_P(pszArg, PSTR("SETUP")) || !strcmp_P(pszArg, PSTR("EEPROM"))) {
           writer.printKey(F("eeprom"));
-          eeprom.print(1);
+          eeprom.noPrefixPrint(2);
           writer.noPrefixPrintln(",");
         } else if (!strcmp_P(pszArg, PSTR("OUTPUT_FORMAT"))) {
           writer.printlnStringObj(F("outputFormat"), formatAsString(arduino::jsonFormat), ",");
@@ -288,17 +302,18 @@ namespace arduino {
     int processSetCommand(bool bVerbose) {
       int respCode = 0;
 
-      beginResp();
-      const char *pszArg = strtok(NULL, ", ");
-
       writer.println("{").increaseDepth();
 
+      beginResp();
+
+      const char *pszArg = strtok(NULL, ", ");
+
       if (!strcmp_P(pszArg, PSTR("OUTPUT_FORMAT"))) {
+
         const char *pszFormat = strtok(NULL, ", \r\n");
-        if (!strcmp_P(pszFormat, PSTR("JSON_COMPACT"))) {
-          arduino::jsonFormat = JSON_FORMAT_COMPACT;
-        } else if (!strcmp_P(pszFormat, PSTR("JSON_PRETTY"))) {
-          arduino::jsonFormat = JSON_FORMAT_PRETTY;
+        JsonFormat fmt = arduino::parseFormat(pszFormat);
+        if ( fmt != JSON_FORMAT_INVALID ) {
+          arduino::jsonFormat = fmt;
         } else {
           writer + F("Expected JSON_COMPACT|JSON_PRETTY but found: ") + pszFormat;
           respCode = 301;
