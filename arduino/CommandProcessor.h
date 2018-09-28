@@ -42,6 +42,9 @@ namespace arduino {
       int cmdCnt = eeprom.getCommandCount();
       for ( int i = 0; i < cmdCnt; i++ ) {
         String cmd;
+        if ( i > 0 ) {
+          writer.noPrefixPrintln(",");
+        }
         int respCode = eeprom.getCommandAt(i,cmd);
         if ( respCode == CMD_OK ) {
           char cmdBuff[CMD_ARR_MAX_ROW_LENGTH];
@@ -52,6 +55,7 @@ namespace arduino {
           }
         }
       }
+      writer.println();
       return CMD_OK;
     }
 
