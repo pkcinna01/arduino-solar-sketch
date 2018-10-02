@@ -96,7 +96,7 @@ namespace arduino {
         cmdCnt++;
         setCommandCount(cmdCnt);
         setCommandAt(cmdCnt-1,cmd);
-        cout << __PRETTY_FUNCTION__ << " added command '" << cmd << "' at index " << cmdCnt-1 << endl;        
+        //cout << __PRETTY_FUNCTION__ << " added command '" << cmd << "' at index " << cmdCnt-1 << endl;        
       }
       return CMD_OK;
     }
