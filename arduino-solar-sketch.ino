@@ -158,10 +158,10 @@ void setup() {
     gLastInfoMsg = F("Loading EEPROM data for version ");
     gLastInfoMsg += version;
     arduino::jsonFormat = eeprom.getJsonFormat();
-    //StringStreamWriter writer;
-    JsonSerialWriter writer;
+    NullWriter writer;
+    //JsonSerialWriter writer;
     writer.println("[").increaseDepth();
-    CommandProcessor<JsonSerialWriter>::setup(writer,sensors,devices);
+    CommandProcessor<NullWriter>::setup(writer,sensors,devices);
     //cout << writer.serial.ss.str() << endl;
     writer.decreaseDepth().println("]");
   }
