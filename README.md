@@ -4,13 +4,16 @@
 
 This application controls fans and high power relays.  It supports USB
 queries so the power usage and state of devices can be monitored and displayed with tools such as Prometheus
-and Grafana.  The USB interface lets monitoring systems and external programs override fan behavior. 
+and Grafana.  The USB interface lets monitoring systems and external programs override fan and power switch behaviors.
 
-This is a rewrite which is not compatible with Arduino UNO.  A MEGA2560 Arduino board is now used which allows more
-memory intesive libraries and code like ArduinoSTL.  The available commands will change to reflect new device managment.
+Not comaptable with Arduino UNO.  An ATMEGA2560 board is used due to larger program size and ArduinoSTL dependency.
+
+Save or "PERSIST" functionality changed significantly.  The new implementation does not save explicit values.  Instead it stores
+a list of SETUP commands.  These commands are run on startup or RESET.
+
 
 Available commands:
-`VERSION|GET|SET_FAN_MODE|SET_FAN_THRESHOLDS|SET_POWER_METER_VCC|SET_OUTPUT_FORMAT`
+`GET|INCLUDE|EXCLUDE|SET|SETUP|RESET|VERBOSE`
 
 #### TODO
 1. Provide Arduino circuit diagram   
@@ -21,33 +24,27 @@ See [arduino-solar-client](https://github.com/pkcinna01/arduino-solar-client) fo
 
 Get the state of each device and power meter.
 ```
-GET
+get,devices
 ```
 
-Turn off all fans, then turn on all fans, then resume automatic control of fans.  Use PERSIST instead of TRANSIENT
-if Arduino is to remember fan mode after reboot.
+Turn off all fans, then turn on all fans, then resume automatic control of fans.
 ```
-SET_FAN_MODE,ON,TRANSIENT
-SET_FAN_MODE,OFF,TRANSIENT
-SET_FAN_MODE,AUTO,TRANSIENT
+set,device,*,constraint/mode,pass
+set,device,*,constraint/mode,fail
+set,device,*,constraint/mode,test
 ```
 
 Change the temperature thresholds for the fans... first find device named "Bench" and update all fans (wildcard) to turn on when
 temp exceeds 90 degrees fahrenheit and off when temp goes below 85.
 ```
-SET_FAN_THRESHOLDS,Bench,*,90,85,PERSIST
+TODO
 ```
 
 Calibrate the voltage used to measure device voltage and power consumption.  The second argument is the filter 
 on the power meter name and the third argument is the measured voltage of the Arduino or power source used.
 ```
-SET_POWER_METER_VCC,*,4.89
+TODO
 ```
- 
-## Motivation
-
-Used to efficiently cool several solar charge controllers in an off grid system.
-
 
 ## Installation
 

@@ -138,7 +138,7 @@ namespace arduino {
         bVerbose = true;
         respCode = executeLine(pszCmd,bVerbose);
       } else {
-        beginResp() + F("Expected {GET|INCLUDE|EXCLUDE|SET|SETUP} but found: ") + pszCmdName;
+        beginResp() + F("Expected {GET|INCLUDE|EXCLUDE|SET|SETUP|RESET|VERBOSE} but found: ") + pszCmdName;
         endResp(INVALID_CMD_ARGUMENT);
       }
       return respCode;
