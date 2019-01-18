@@ -10,6 +10,8 @@ namespace automation {
     const bool bResult;
 
   public:
+    RTTI_GET_TYPE_IMPL(automation,Boolean)
+
     explicit BooleanConstraint(bool bResult) : bResult(bResult) {
     }
 
@@ -17,14 +19,13 @@ namespace automation {
       return bResult;
     }
 
-    string getTitle() override {
+    string getTitle() const override {
       return bResult ? "PASS" : "FAIL";
     }
   };
 
-//TBD - make these const?  what if SET,DEVICE_MODE on one of these and it is shared?
-  BooleanConstraint FAIL_CONSTRAINT(false);
-  BooleanConstraint PASS_CONSTRAINT(true);
+  static BooleanConstraint FAIL_CONSTRAINT(false);
+  static BooleanConstraint PASS_CONSTRAINT(true);
 
 }
 #endif //SOLAR_IFTTT_BOOLEANCONSTRAINT_H

@@ -13,23 +13,20 @@ using namespace std;
 
 namespace automation {
 
-  class TimeRangeConstraint : public NestedConstraint {
+  class TimeRangeConstraint : public Constraint {
   public:
+    RTTI_GET_TYPE_IMPL(automation,TimeRange)
+    
     struct Time {
       int hour, minute, second;
     } beginTime, endTime;
 
-    TimeRangeConstraint(Time beginTime, Time endTime, Constraint *pConstraint = &automation::PASS_CONSTRAINT) :
-        NestedConstraint(pConstraint, "TIME_RANGE"),
+    TimeRangeConstraint(Time beginTime, Time endTime) :
         beginTime(beginTime),
         endTime(endTime) {
     }
 
-    bool outerCheckValue(bool bInnerCheckResult) override {
-      return bInnerCheckResult ? checkTimeRanges() : false;
-    }
-
-    bool checkTimeRanges() {
+    bool checkValue() override {
       if ( !automation::isTimeValid() ) {
         return false; // for arduino when no time hardware and time never set
       }
@@ -48,18 +45,15 @@ namespace automation {
       return now >= beginTimeT && now <= endTimeT;
     }
 
-    string getTitle() override {
+    string getTitle() const override {
       stringstream ss;
-      ss << outerTitle << "[" << setfill('0') << setw(2) << beginTime.hour << ":"
+      ss << getType() << "[" << setfill('0') << setw(2) << beginTime.hour << ":"
          << setfill('0') << setw(2) << beginTime.minute << ":"
          << setfill('0') << setw(2) << beginTime.second
          << "-"
          << setfill('0') << setw(2) << endTime.hour << ":"
          << setfill('0') << setw(2) << endTime.minute << ":"
-         << setfill('0') << setw(2) << endTime.second << "]";
-      if ( pConstraint != &PASS_CONSTRAINT && pConstraint != &FAIL_CONSTRAINT) {
-        ss << "(" << pConstraint->getTitle() << ")";
-      }
+         << setfill('0') << setw(2) << endTime.second << "]";      
       return ss.str();
     }
   };

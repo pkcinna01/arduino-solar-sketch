@@ -8,6 +8,7 @@
 
 class CurrentSensor : public ArduinoSensor {
 public:
+  RTTI_GET_TYPE_IMPL(arduino,CurrentSensor)
 
   typedef unsigned short RatedAmps;
   static const RatedAmps RATED_100_AMPS = 100,
@@ -44,7 +45,7 @@ public:
       channel(channel),
       gain(gain) {
   }
-
+ 
   void setup() override {
     ads.setGain(gain);    
     ads.begin();

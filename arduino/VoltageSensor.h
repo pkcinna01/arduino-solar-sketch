@@ -4,7 +4,7 @@
 
 #include "AnalogSensor.h"
 #include "JsonWriter.h"
-
+namespace arduino {
 class VoltageSensor : public AnalogSensor {
 public:
 
@@ -31,6 +31,8 @@ public:
       maxVccAgeMs(maxVccAgeMs) {
   }
 
+  RTTI_GET_TYPE_IMPL(arduino,VoltageSensor)
+  
   float getValueImpl() const override {
     return readVoltage();
   }
@@ -65,5 +67,5 @@ public:
 
 float VoltageSensor::vcc = 5;
 unsigned long VoltageSensor::lastVccReadMs = 0;
-
+}
 #endif

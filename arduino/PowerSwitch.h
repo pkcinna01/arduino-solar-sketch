@@ -2,13 +2,15 @@
 #define ARDUINO_POWERSWITCH_H
 
 #include "../automation/Automation.h"
-#include "../automation/Sensor.h"
+#include "../automation/sensor/Sensor.h"
 #include "../automation/device/PowerSwitch.h"
 
 namespace arduino {
 
   class PowerSwitch : public automation::PowerSwitch {
   public:
+
+    RTTI_GET_TYPE_IMPL(arduino,PowerSwitch)
 
     int relayPin;
     bool onValue;
@@ -36,6 +38,12 @@ namespace arduino {
     void setOn(bool bOn) override {
       //cout << __PRETTY_FUNCTION__ << " bOn=" << bOn << endl;
       digitalWrite(relayPin,bOn?onValue:!onValue);
+    }
+
+    void printVerboseExtra(int depth) override {
+      JsonSerialWriter w(depth);
+      w.noPrefixPrintln(",");
+      w.printlnNumberObj(F("relayPin"),relayPin,"");
     }
 
   };

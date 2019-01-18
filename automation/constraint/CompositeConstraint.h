@@ -20,7 +20,7 @@ namespace automation {
         constraints(constraints) {
     }
 
-    string getTitle() override {
+    string getTitle() const override {
       string title = "(";
       for (int i = 0; i < constraints.size(); i++) {
         title += constraints[i]->getTitle();

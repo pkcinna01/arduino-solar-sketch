@@ -1,21 +1,25 @@
-#define VERSION "SOLAR-1.0"
-#define BUILD_NUMBER 1
+#define ARDUINO_APP
+#define VERSION "SOLAR-1.1"
+#define BUILD_NUMBER 2
 #define BUILD_DATE __DATE__
 
 #include <EEPROM.h>
 #include <Wire.h>
 #include <ArduinoSTL.h>
 
+//#include <MemoryUsage.h>
+
 // automation includes not specific to arduino
 #include "automation/Automation.h"
-#include "automation/Sensor.h"
-#include "automation/CompositeSensor.h"
+#include "automation/sensor/Sensor.h"
+#include "automation/sensor/CompositeSensor.h"
 #include "automation/constraint/Constraint.h"
 #include "automation/constraint/NotConstraint.h"
 #include "automation/constraint/ValueConstraint.h"
 #include "automation/constraint/TimeRangeConstraint.h"
 #include "automation/constraint/AndConstraint.h"
-#include "automation/Sensor.cpp"
+#include "automation/sensor/Sensor.cpp"
+#include "automation/device/Device.cpp"
 
 using namespace automation;
 
@@ -37,6 +41,7 @@ using namespace automation;
 #include "arduino/Sensor.cpp"
 #include "arduino/Device.cpp"
 #include "arduino/Capability.cpp"
+#include "arduino/Constraint.cpp"
 
 #include <vector>
 #include <sstream>
@@ -73,16 +78,16 @@ arduino::CoolingFan exhaustFan("Enclosure Exhaust Fan", 22, enclosureTemp, 95, 9
 arduino::CoolingFan chargerGroupFan("Charger Group Fan", 23, chargerGroupTemp, 110, 105, LOW);
 arduino::CoolingFan inverterFan("Inverter Fan", 24, inverterTemp, 110, 105, LOW);
 
-struct MinBatteryBankVoltage : MinConstraint<float,Sensor&> {
-  MinBatteryBankVoltage(float volts) : MinConstraint(volts, batteryBankVoltage) {    
+struct MinBatteryBankVoltage : AtLeast<float,Sensor&> {
+  MinBatteryBankVoltage(float volts) : AtLeast(volts, batteryBankVoltage) {    
   }
 };
 
-struct MinBatteryBankVoltage minBatteryBankVoltage(21);
-struct MinBatteryBankVoltage outletsMinBatteryBankVoltage(22);
+struct MinBatteryBankVoltage outletsMinSteadySupplyVoltage(23);
+struct MinBatteryBankVoltage outletsMinDipSupplyVoltage(21.5);
 
-//struct MaxBatteryBankPower : MaxConstraint<float,Sensor&> {
-//  MaxBatteryBankPower(float watts) : MaxConstraint(watts, batteryBankPower) {    
+//struct MaxBatteryBankPower : AtMost<float,Sensor&> {
+//  MaxBatteryBankPower(float watts) : AtMost(watts, batteryBankPower) {    
 //  }
 //};
 
@@ -91,6 +96,7 @@ struct InverterSwitch : public arduino::PowerSwitch {
   InverterSwitch() : arduino::PowerSwitch("Inverter Switch", 25, LOW) {
     setConstraint(&defaultOff);
   }
+  RTTI_GET_TYPE_IMPL(main,InverterSwitch)  
 } inverterSwitch;
 
 struct BatteryBankSwitch : public arduino::PowerSwitch {
@@ -98,13 +104,15 @@ struct BatteryBankSwitch : public arduino::PowerSwitch {
   BatteryBankSwitch(const char* title, int pin) : arduino::PowerSwitch(title, pin, LOW) {
     setConstraint(&defaultOff);
   }
+  RTTI_GET_TYPE_IMPL(main,BatteryBankSwitch)  
 } batteryBankASwitch("Battery Bank A Switch", 26), batteryBankBSwitch("Battery Bank B Switch", 27);
 
 struct OutletSwitch : public arduino::PowerSwitch {
-  //struct MaxBatteryBankPower maxBatteryBankPower {1400};
-  //AndConstraint constraints { {&outletsMinBatteryBankVoltage, &maxBatteryBankPower} };
+  AndConstraint constraints { {&outletsMinSteadySupplyVoltage, &outletsMinDipSupplyVoltage} };
   OutletSwitch(const string& name, int pin, int onValue = HIGH) : arduino::PowerSwitch(name, pin, onValue) {
-    setConstraint(&outletsMinBatteryBankVoltage);
+    setConstraint(&constraints);
+    outletsMinDipSupplyVoltage.setPassDelayMs(5*MINUTES).setFailDelayMs(15*SECONDS).setPassMargin(2);
+    outletsMinSteadySupplyVoltage.setPassDelayMs(15*MINUTES).setFailDelayMs(1*MINUTES).setPassMargin(2);
   }
 };
 
@@ -128,18 +136,19 @@ Sensors sensors {{
     &chargerGroupTemp, 
     &batteryBankVoltage, &batteryBankCurrent, &batteryBankPower,
     &batteryBankAVoltage,&batteryBankBVoltage,
-    &atticTemp, &enclosureTemp, &enclosureTempDht, &enclosureHumidityDht, 
+    &atticTemp, &enclosureTemp, 
+    &enclosureTempDht, &enclosureHumidityDht, 
     &charger1Temp, &charger2Temp, &inverterTemp, //&sunroomTemp, 
     &exhaustFan.toggleSensor, &chargerGroupFan.toggleSensor, 
     &inverterFan.toggleSensor, &inverterSwitch.toggleSensor,
-    //&batteryBankASwitch.toggleSensor, &batteryBankBSwitch.toggleSensor,
+    &batteryBankASwitch.toggleSensor, &batteryBankBSwitch.toggleSensor,
     &outlet1Switch.toggleSensor, &outlet2Switch.toggleSensor,    
     &lightLevel
 }};
 
 void setup() {
   Serial.begin(38400, SERIAL_8O1); // bit usage: 8 data, odd parity, 1 stop
-  //Serial.begin(38400, SERIAL_8N1); 
+  //Serial.begin(38400, SERIAL_8N1); // for IDE testing
 
   String version;
   eeprom.getVersion(version);
@@ -173,6 +182,7 @@ void setup() {
     pDevice->setup();
   }
 
+  arduino::watchdog::enable();
 }
 
 void loop() {
@@ -187,7 +197,7 @@ void loop() {
   unsigned long currentTimeMs = millis();
 
   // read char by char to avoid issues with default 64 byte serial buffer
-  while (Serial.available() ) {        
+  while (Serial.available() ) {   
     char c = Serial.read();
     if ( bytesRead == 0 ) {
       if ( c == -1 )
@@ -232,8 +242,7 @@ void loop() {
     writer.println( "[" );
     writer.increaseDepth();
     CommandProcessor<JsonSerialWriter> cmdProcessor(writer,sensors,devices);
-
-    
+      
     if ( msgReadTimedOut ) 
     {
       writer.println("{");
@@ -252,7 +261,9 @@ void loop() {
     }
     else
     {
-      cmdProcessor.execute(pszCmd);      
+      arduino::watchdog::keepAlive();
+      automation::client::watchdog::messageReceived();
+      int respCode = cmdProcessor.execute(pszCmd);     
     }
     
     writer.decreaseDepth();
@@ -267,5 +278,7 @@ void loop() {
 
     bytesRead = 0; // reset commandBuff
     beginCmdReadTimeMs = 0;
-  }    
+  }
+
+  arduino::watchdog::keepAlive();
 }

@@ -28,24 +28,6 @@ namespace automation {
     NullStream() : std::ostream( &m_nb ) {}
   };
 
-  /*class NulStreambuf : public std::streambuf
-  {
-    char                dummyBuffer[ 1 ];
-  protected:
-    virtual int         overflow( int c )
-    {
-      setp( dummyBuffer, dummyBuffer + sizeof( dummyBuffer ) );
-      return (c == traits_type::eof()) ? '\0' : c;
-    }
-  };
-  class NulOStream : private NulStreambuf, public std::ostream
-  {
-  public:
-    NulOStream() : std::ostream( this ) {}
-    NulStreambuf* rdbuf() const { return this; }
-  };
-  */
-
   std::ostream& getLogBufferImpl() {
 
     //std::cout.setstate(std::ios_base::badbit);

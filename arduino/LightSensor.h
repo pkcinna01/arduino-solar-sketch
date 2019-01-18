@@ -6,6 +6,7 @@
 
 #include "AnalogSensor.h"
 
+namespace arduino {
 class LightSensor : public AnalogSensor {
   public:
 
@@ -17,6 +18,8 @@ class LightSensor : public AnalogSensor {
   {
   }
 
+  RTTI_GET_TYPE_IMPL(arduino,LightSensor)
+  
   float getValueImpl() const override {
     int percent = 100.0 * analogRead(sensorPin)/1023.0;
     //float rThermistor = balanceResistance * ( (1023.0 / pinVoltage) - 1);
@@ -29,5 +32,5 @@ protected:
   float balanceResistance;
 
 };
-
+}
 #endif

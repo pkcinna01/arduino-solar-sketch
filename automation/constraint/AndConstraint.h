@@ -7,6 +7,8 @@ namespace automation {
 
   class AndConstraint : public CompositeConstraint {
   public:
+    RTTI_GET_TYPE_IMPL(automation,And)
+    
     AndConstraint(const vector<Constraint *> &constraints) :
         CompositeConstraint("AND", constraints) {
     }

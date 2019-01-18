@@ -5,7 +5,7 @@
 #include "../automation/ArduinoSensor.h"
 
 // 0 for relay/toggle turned off and 1 for on
-
+namespace arduino {
 class RelaySensor : public automation::ArduinoSensor {
 public:
 
@@ -16,6 +16,8 @@ public:
   {
   }
 
+  RTTI_GET_TYPE_IMPL(arduino,RelaySensor)
+ 
   void setup() override {
     cout << __PRETTY_FUNCTION__ << endl;
     if ( !bInitialized ) {
@@ -30,5 +32,5 @@ public:
   }
 
 };
-
+}
 #endif

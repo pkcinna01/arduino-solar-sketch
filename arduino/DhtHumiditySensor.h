@@ -3,7 +3,7 @@
 #define ARDUINO_DHT_HUMIDITY_SENSOR_H
 
 #include "DhtSensor.h"
-
+namespace arduino {
 class DhtHumiditySensor : public DhtSensor {
   public:
   DhtHumiditySensor(const char* const name, Dht& dht)
@@ -11,6 +11,8 @@ class DhtHumiditySensor : public DhtSensor {
   {    
   }
 
+  RTTI_GET_TYPE_IMPL(arduino,DhtHumiditySensor)
+ 
   float getValueImpl() const override {
     if ( isCacheExpired() ) {
       cacheValue(dht.readHumidity());
@@ -18,5 +20,5 @@ class DhtHumiditySensor : public DhtSensor {
     return cachedValue;
   }
 };
-
+}
 #endif

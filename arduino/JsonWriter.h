@@ -245,6 +245,7 @@ class JsonWriter
     {
       noPrefixPrintln( i != 0 ? "," : "" );
       arr[i]->print(depth+1);
+      arduino::watchdog::keepAlive();
     };
     noPrefixPrintln();
     print("]");
@@ -280,6 +281,7 @@ class JsonWriter
       } else {
         (*itr)->print(depth+1);
       }
+      arduino::watchdog::keepAlive();
       itr++;
     };
     noPrefixPrintln();

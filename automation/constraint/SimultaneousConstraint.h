@@ -8,6 +8,8 @@ namespace automation {
 
 class SimultaneousConstraint : public Constraint, public Capability::CapabilityListener {
   public:
+    RTTI_GET_TYPE_IMPL(automation,Simultaneous)
+    
     unsigned long maxIntervalMs;
 
     SimultaneousConstraint(unsigned int maxIntervalMs, Capability* pCapability, double targetValue=1.0) :
@@ -15,7 +17,7 @@ class SimultaneousConstraint : public Constraint, public Capability::CapabilityL
     }
 
     // don't check for simultaneous events if doing a bulk synchronize of state
-    bool isSynchronizable() override {
+    bool isSynchronizable() const override {
       return false;
     }
 
@@ -32,9 +34,27 @@ class SimultaneousConstraint : public Constraint, public Capability::CapabilityL
       return false;
     }
 
-    string getTitle() override {
-      string title = "Simultaneous";
-      return title;
+    string getTitle() const override {
+        stringstream ss;
+        string owner = pCapability->getOwnerName();
+        ss << getType() << "(" << owner;
+        size_t totalLength = owner.length();
+        for ( auto c : capabilityGroup ) {
+            owner = c->getOwnerName();
+            const size_t maxTitleLen = 60;
+            if ( totalLength + owner.length() > maxTitleLen ) {
+                if ( totalLength < maxTitleLen ) {
+                    ss << owner.substr(0,maxTitleLen-totalLength);
+                }
+                ss << "...";
+                break;
+            } else {
+                totalLength += owner.length();
+                ss << ',' << owner;
+            }
+        }
+        ss << ")";
+        return ss.str();
     }
 
     // add instance of this class as listener to a capability if it is in group of things to be throttled
@@ -55,15 +75,27 @@ class SimultaneousConstraint : public Constraint, public Capability::CapabilityL
       }
     }
 
-    virtual SimultaneousConstraint& listen( Capability* c ) {
-      c->addListener(this);
+    virtual SimultaneousConstraint& listen( Capability* pCapability ) {
+      pCapability->addListener(this);
+      capabilityGroup.push_back(pCapability);
       return *this;
+    }
+
+    static void connectListeners( std::initializer_list<SimultaneousConstraint*> group) {
+      for ( auto pConstraint : group ) {
+        for ( auto pCapabilityOwner : group ) {
+          if (pConstraint!=pCapabilityOwner) {
+            pConstraint->listen(pCapabilityOwner->pCapability);
+          }
+        }
+      }
     }
 
   protected:
     unsigned long lastPassTimeMs = 0;
     Capability* pCapability;
     const Capability* pLastPassCapability = nullptr;
+    vector<Capability*> capabilityGroup;
     double targetValue; // set to 1 if check for simultaneous toggle ON and set to 0 for toggle OFF
   };
 

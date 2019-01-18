@@ -15,6 +15,7 @@ namespace automation {
   class ScheduledConstraint : public NestedConstraint {
 
   public:
+    RTTI_GET_TYPE_IMPL(automation,Scheduled)
 
     struct RangeVector : public vector<pair<uint16_t,uint16_t>> {
       int *pMember;
@@ -48,7 +49,7 @@ namespace automation {
     vector<RangeVector*> rangeVectorList = { &years, &months, &monthDays, &weekDays, &hours, &minutes, &seconds };
 
     ScheduledConstraint(Constraint *pConstraint = &automation::PASS_CONSTRAINT) :
-        NestedConstraint(pConstraint,"SCHEDULED") {
+        NestedConstraint(pConstraint) {
     }
 
     bool outerCheckValue(bool bInnerCheckResult) override {

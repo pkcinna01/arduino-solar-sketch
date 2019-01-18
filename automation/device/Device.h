@@ -13,46 +13,34 @@ namespace automation {
 
   class Capability;
 
-  class Device {
+  class Device : public AttributeContainer {
   public:
 
-    string name;
     Constraint *pConstraint = nullptr;
     vector<Capability *> capabilities;
+    bool bError;
 
     Device(const string &name) :
-        name(name), pConstraint(nullptr) {
+        AttributeContainer(name), pConstraint(nullptr), bError(false) {
     }
 
-    virtual void applyConstraint(bool bIgnoreSameState = true, Constraint *pConstraint = nullptr) {
-      if ( !pConstraint ) {
-        pConstraint = this->pConstraint;
-      }
-      if (pConstraint) {
-        if ( automation::bSynchronizing && !pConstraint->isSynchronizable() ) {
-          return;
-        }
-        bool bTestResult = pConstraint->test();
-        if ( pPrerequisiteConstraint && !pPrerequisiteConstraint->test() ) {
-          if ( bConstraintPassed ) {
-            bConstraintPassed = false;
-            constraintResultChanged(false);
-          }
-        } else if (!bIgnoreSameState || bTestResult != bConstraintPassed) {
-          bConstraintPassed = bTestResult;
-          constraintResultChanged(bTestResult);
-        }
-      }
-    }
+    RTTI_GET_TYPE_DECL;
+    
+    virtual void applyConstraint(bool bIgnoreSameState = true, Constraint *pConstraint = nullptr);
 
     virtual void constraintResultChanged(bool bConstraintResult) = 0;
 
-    virtual void print(int depth = 0);
-    virtual void printVerbose(int depth = 0 ) { print(depth); }
+    virtual void print(int depth, bool bVerbose);
 
-    virtual bool testConstraint() {
-      return pConstraint ? pConstraint->test() : true;
+    virtual void print(int depth = 0) { 
+      print(depth,false); 
     }
+    
+    virtual void printVerbose(int depth = 0 ) { 
+      print(depth,true); 
+    }
+
+    virtual void printVerboseExtra(int depth = 1);
 
     virtual Constraint* getConstraint() {
       return pConstraint;
@@ -63,12 +51,16 @@ namespace automation {
     }
     
     virtual void setup() = 0;
-
+    
+    virtual bool setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override;
+    
+    friend std::ostream &operator<<(std::ostream &os, const Device &d) {
+      os << F("\"Device\": { \"name\": \"") << d.name << "\" }";
+      return os;
+    }
 
   protected:
-    Constraint *pPrerequisiteConstraint = nullptr;
     bool bInitialized = false;
-    bool bConstraintPassed = false;
   };
 
 

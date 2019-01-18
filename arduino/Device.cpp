@@ -5,41 +5,29 @@
 
 namespace automation {
 
-void Device::print(int depth)
-{
+  void Device::print(int depth, bool bVerbose) {
     JsonSerialWriter w(depth);
     w.println("{");
     w.increaseDepth();
     w.printlnStringObj(F("name"),name.c_str(),",");
-    w.printlnStringObj(F("constraint"), (bConstraintPassed || !pConstraint) ? "PASSED" : "FAILED" , ",");
-    w.printlnVectorObj(F("capabilities"), capabilities);
+    w.printlnStringObj(F("type"),getType().c_str(),",");    
+    w.printKey(F("constraint"));
+    if ( bVerbose ) {
+        pConstraint->printVerbose(depth+1);
+        w.noPrefixPrintln(",");
+        w.printVectorObj(F("capabilities"), capabilities);
+        printVerboseExtra(depth+1);
+    } else {
+        w.noPrefixPrint("{ \"") + F("state\": ") + (pConstraint->isPassed() ? "PASSED" : "FAILED");
+        w.noPrefixPrintln(" }");
+    }    
     w.decreaseDepth();
     w.print("}");
   }
 
-}
-
-/*void CompositeSensor::print(int depth)
-{
+  void Device::printVerboseExtra(int depth) {
+    // override this to insert device specifics into printVerbose output
     JsonSerialWriter w(depth);
-    w.println("{");
-    w.increaseDepth();
-    w.printlnStringObj(F("name"), name.c_str(), ",");
-    w.printKey(F("sensors"));
-    w.noPrefixPrintln("{");
-    w.increaseDepth();
-    bool bFirst = true;
-    for( Sensor* s : sensors ) {
-        if ( bFirst ) {
-            bFirst = false;
-        } else {
-            w.noPrefixPrintln(",");
-        }
-        s->print(depth+2);
-    }
-    w.decreaseDepth();
     w.noPrefixPrintln("");
-    w.println("}");
-    w.decreaseDepth();
-    w.print("}");
-}*/
+  }
+}

@@ -2,7 +2,7 @@
 #define ARDUINO_COOLING_FAN_H
 
 #include "../automation/Automation.h"
-#include "../automation/Sensor.h"
+#include "../automation/sensor/Sensor.h"
 #include "../automation/device/CoolingFan.h"
 
 namespace arduino {
@@ -10,6 +10,8 @@ namespace arduino {
   class CoolingFan : public automation::CoolingFan {
   public:
 
+    RTTI_GET_TYPE_IMPL(arduino,CoolingFan)
+   
     int relayPin;
     bool onValue;
 
@@ -37,7 +39,16 @@ namespace arduino {
       digitalWrite(relayPin,bOn?onValue:!onValue);
     }
 
-
+    void printVerboseExtra(int depth) override {
+      JsonSerialWriter w(depth);
+      w.noPrefixPrintln(",");
+      w.printlnNumberObj(F("relayPin"),relayPin,",");
+      w.printlnNumberObj(F("onValue"),onValue,",");
+      w.printlnNumberObj(F("onTemp"),minTemp.pThreshold->getValue() + minTemp.getPassMargin(),",");
+      w.printlnNumberObj(F("offTemp"),minTemp.pThreshold->getValue() - minTemp.getFailMargin(),",");
+      w.printlnNumberObj(F("minDurationMs"),minTemp.getFailDelayMs(),",");
+      w.printlnNumberObj(F("currentTemp"),tempSensor.getValue(),"");
+    }
   };
 
 }

@@ -1,7 +1,3 @@
-//
-// Created by pkcinna on 8/21/18.
-//
-
 #ifndef AUTOMATION_TOGGLE_H
 #define AUTOMATION_TOGGLE_H
 
@@ -18,9 +14,8 @@ namespace automation {
 
         }
 
-        const string getType() const override {
-          return "TOGGLE";
-        }
+        RTTI_GET_TYPE_IMPL(automation,Toggle)
+ 
     };
 
 };

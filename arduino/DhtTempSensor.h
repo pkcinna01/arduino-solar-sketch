@@ -3,7 +3,7 @@
 #define ARDUINO_DHT_TEMP_SENSOR_H
 
 #include "DhtSensor.h"
-
+namespace arduino {
 class DhtTempSensor : public DhtSensor {
   public:
   DhtTempSensor(const char* const name, Dht& dht)
@@ -11,6 +11,8 @@ class DhtTempSensor : public DhtSensor {
   {    
   }
 
+  RTTI_GET_TYPE_IMPL(arduino,DhtTempSensor)
+ 
   float getValueImpl() const override {    
     if ( isCacheExpired() || status.code != 0 ) {
       cacheValue(dht.readTemp());
@@ -19,5 +21,5 @@ class DhtTempSensor : public DhtSensor {
     return cachedValue;
   }
 };
-
+}
 #endif

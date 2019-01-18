@@ -8,7 +8,9 @@ namespace automation {
 
   class NotConstraint : public NestedConstraint {
   public:
-    explicit NotConstraint(Constraint *pConstraint) : NestedConstraint(pConstraint, "NOT") {
+    RTTI_GET_TYPE_IMPL(automation,Not)
+
+     explicit NotConstraint(Constraint *pConstraint) : NestedConstraint(pConstraint) {
     }
 
     bool outerCheckValue(bool bInnerResult) override {

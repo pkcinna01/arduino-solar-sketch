@@ -1,7 +1,7 @@
 #ifndef AUTOMATION_SENSOR_H
 #define AUTOMATION_SENSOR_H
 
-#include "Automation.h"
+#include "../Automation.h"
 
 #include <string>
 #include <functional>
@@ -10,12 +10,18 @@
 
 namespace automation {
 
-  class Sensor {
+  template<typename ValueT>
+  class ValueHolder {
   public:
+    virtual ValueT getValue() const = 0;
+  };
 
-    std::string name;
+  class Sensor : public ValueHolder<float>, public AttributeContainer {
+  public:    
+    RTTI_GET_TYPE_DECL;
+    //GET_ID_DECL;
 
-    Sensor(const std::string& name) : name(name)
+    Sensor(const std::string& name) : AttributeContainer(name)
     {
     }
 
@@ -23,9 +29,7 @@ namespace automation {
     {
       bInitialized = true;
     }
-
-    virtual float getValue() const = 0;
-
+  
     virtual void print(int depth = 0);
 
     virtual void printVerbose(int depth = 0 ) { print(depth); }
@@ -60,7 +64,7 @@ namespace automation {
     static float delta(const vector<Sensor*>& sensors);
 
     friend std::ostream &operator<<(std::ostream &os, const Sensor &s) {
-      os << "\"Sensor\": { name: \"" << s.name << "\", value: " << s.getValue() << " }";
+      os << F("\"Sensor\": { name: \"") << s.name << F("\", value: ") << s.getValue() << " }";
       return os;
     }
 
@@ -68,8 +72,10 @@ namespace automation {
     bool bInitialized = false;
   };
 
+
   class SensorFn : public Sensor {
   public:
+    RTTI_GET_TYPE_IMPL(automation::sensor,SensorFn)
 
     //const std::function<float()> getValueImpl;
     float (*getValueImpl)(); // Arduino does not support function<> template
@@ -89,19 +95,23 @@ namespace automation {
     }
   };
 
-  class ScaledSensor : public Sensor {
+
+  // Use another sensor as the source for data but transform it based on a custom function
+  class TransformSensor : public Sensor {
   public:
     Sensor& sourceSensor;
-    float(*scaleFn)(float);
+    float(*transformFn)(float);
+    std::string transformName;
 
-    ScaledSensor(Sensor& sourceSensor, float(*scaleFn)(float)):
-      Sensor( string("SCALED(") + sourceSensor.name + ")"),
+    TransformSensor(const std::string& transformName, Sensor& sourceSensor, float(*transformFn)(float)):
+      Sensor( transformName + "(" + sourceSensor.name + ")"),
+      transformName(transformName),
       sourceSensor(sourceSensor),
-      scaleFn(scaleFn) {
+      transformFn(transformFn) {
     }
     virtual float getValue() const
     {
-      return scaleFn(sourceSensor.getValue());
+      return transformFn(sourceSensor.getValue());
     }
 
   };

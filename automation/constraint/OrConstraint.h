@@ -9,6 +9,8 @@ namespace automation {
 
   class OrConstraint : public CompositeConstraint {
   public:
+    RTTI_GET_TYPE_IMPL(automation,Or)
+    
     OrConstraint(const vector<Constraint *> &constraints) :
         CompositeConstraint("OR", constraints) {
     }

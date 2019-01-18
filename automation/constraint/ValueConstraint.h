@@ -36,7 +36,7 @@ namespace automation {
   template<typename ValueT, typename ValueSourceT>
   class RangeConstraint : public ValueConstraint<ValueT,ValueSourceT> {
   public:
-
+    RTTI_GET_TYPE_IMPL(automation,Range)
     ValueT minVal, maxVal;
 
     RangeConstraint(ValueT minVal, ValueT maxVal, ValueSourceT &valueSource)
@@ -48,7 +48,7 @@ namespace automation {
       ValueT maxVal = this->maxVal;
 
       if (this->deferredTimeMs) {
-        if (this->bTestResult) {
+        if (this->isPassed()) {
           minVal -= this->failMargin;
           maxVal += this->failMargin;
         } else {
@@ -60,9 +60,9 @@ namespace automation {
       return value >= minVal && value <= maxVal;
     }
 
-    string getTitle() override {
+    string getTitle() const override {
       string rtn(this->valueSource.name);
-      rtn += " RANGE(";
+      rtn += " Range(";
       rtn += asString(minVal);
       rtn += ",";
       rtn += asString(maxVal);
@@ -71,21 +71,79 @@ namespace automation {
     }
   };
 
-  template<typename ValueT, typename ValueSourceT>
-  class MaxConstraint : public ValueConstraint<ValueT,ValueSourceT> {
+
+  template<typename ValueT>
+  class ConstantValueHolder : public ValueHolder<ValueT>  {
   public:
+    ValueT val;
+    
+    ConstantValueHolder(ValueT val)
+      : val(val) {
+    }
+    
+    ValueT getValue() const override {
+      return val;
+    }
+  };
 
-    ValueT maxVal;
+  template<typename ValueT, typename ValueSourceT>
+  class ThresholdValueConstraint : public ValueConstraint<ValueT,ValueSourceT> {
+  public:
+    RTTI_GET_TYPE_IMPL(automation,ThresholdValue)
 
-    MaxConstraint(ValueT maxVal, ValueSourceT &valueSource)
-        : ValueConstraint<ValueT,ValueSourceT>(valueSource), maxVal(maxVal) {
+    ValueHolder<ValueT>* pThreshold;
+
+    bool bDeleteThreshold;
+
+    ThresholdValueConstraint(ValueHolder<ValueT>& threshold, ValueSourceT &valueSource)
+        : ValueConstraint<ValueT,ValueSourceT>(valueSource)
+        , pThreshold(&threshold)
+        , bDeleteThreshold(false) {
+    }
+
+    string getTitle() const override {
+      string rtn(this->valueSource.name);
+      rtn += " ";
+      rtn += this->getType();
+      rtn += "(";
+      rtn += asString(pThreshold->getValue());
+      rtn += ")";
+      return rtn;
+    }
+
+    virtual ~ThresholdValueConstraint() {
+      if ( bDeleteThreshold ) {        
+        delete pThreshold;
+      }
+    }
+
+    protected:
+    ThresholdValueConstraint(ValueHolder<ValueT>* pThreshold, ValueSourceT &valueSource, bool bDeleteThreshold = true )
+        : ValueConstraint<ValueT,ValueSourceT>(valueSource)
+        , pThreshold(pThreshold)
+        , bDeleteThreshold(bDeleteThreshold) {
+    }
+
+  };
+  
+  template<typename ValueT, typename ValueSourceT>
+  class AtMost : public ThresholdValueConstraint<ValueT,ValueSourceT> {
+  public:
+    RTTI_GET_TYPE_IMPL(automation,AtMost)
+
+    AtMost(ValueHolder<ValueT>& threshold, ValueSourceT &valueSource)
+        : ThresholdValueConstraint<ValueT,ValueSourceT>(threshold,valueSource) {
+    }
+
+    AtMost(ValueT threshold, ValueSourceT &valueSource)
+        : AtMost<ValueT,ValueSourceT>(new ConstantValueHolder<ValueT>(threshold),valueSource) {
     }
 
     bool checkValue(const ValueT &value) override {
-      ValueT maxVal = this->maxVal;
+      ValueT maxVal = this->pThreshold->getValue();
 
       if (this->deferredTimeMs) {
-        if (this->bTestResult) {
+        if (this->isPassed()) {
           maxVal += this->failMargin;
         } else {
           maxVal -= this->passMargin;
@@ -94,32 +152,26 @@ namespace automation {
 
       return value <= maxVal;
     }
-
-    string getTitle() override {
-      string rtn(this->valueSource.name);
-      rtn += " MAX(";
-      rtn += asString(maxVal);
-      rtn += ")";
-      return rtn;
-    }
-
   };
 
   template<typename ValueT, typename ValueSourceT>
-  class MinConstraint : public ValueConstraint<ValueT,ValueSourceT> {
+  class AtLeast : public ThresholdValueConstraint<ValueT,ValueSourceT> {
   public:
+    RTTI_GET_TYPE_IMPL(automation,AtLeast)
 
-    ValueT minVal;
+    AtLeast(ValueHolder<ValueT>& threshold, ValueSourceT &valueSource)
+        : ThresholdValueConstraint<ValueT,ValueSourceT>(threshold,valueSource) {
+    }
 
-    MinConstraint(ValueT minVal, ValueSourceT &valueSource)
-        : ValueConstraint<ValueT,ValueSourceT>(valueSource), minVal(minVal) {
+    AtLeast(ValueT threshold, ValueSourceT &valueSource)
+        : ThresholdValueConstraint<ValueT,ValueSourceT>(new ConstantValueHolder<ValueT>(threshold),valueSource,true) {
     }
 
     bool checkValue(const ValueT &value) override {
-      ValueT minVal = this->minVal;
+      ValueT minVal = this->pThreshold->getValue();
 
       if (this->deferredTimeMs) {
-        if (this->bTestResult) {
+        if (this->isPassed()) {
           minVal -= this->failMargin;
         } else {
           minVal += this->passMargin;
@@ -127,15 +179,6 @@ namespace automation {
       }
       return value >= minVal;
     }
-
-    string getTitle() override {
-      string rtn(this->valueSource.name);
-      rtn += " MIN(";
-      rtn += asString(minVal);
-      rtn += ")";
-      return rtn;
-    }
-
   };
 
 }

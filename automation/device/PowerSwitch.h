@@ -3,7 +3,7 @@
 
 #include "Device.h"
 #include "../capability/Toggle.h"
-#include "../ToggleSensor.h"
+#include "../sensor/ToggleSensor.h"
 
 #include <functional>
 
@@ -13,6 +13,7 @@ namespace automation {
     class PowerSwitch : public Device {
 
     public:
+      float requiredWatts;
 
       struct PowerSwitchToggle : automation::Toggle {
         PowerSwitchToggle(PowerSwitch* pPowerSwitch) : Toggle(pPowerSwitch), pPowerSwitch(pPowerSwitch) {};
@@ -29,7 +30,7 @@ namespace automation {
 
       ToggleSensor toggleSensor; // allow the switch state to be seen as a sensor
 
-      PowerSwitch(const string &name) : Device(name), toggle(this), toggleSensor(&toggle) {
+      PowerSwitch(const string &name, float requiredWatts = 0) : Device(name), toggle(this), toggleSensor(&toggle), requiredWatts(requiredWatts) {
         capabilities.push_back(&toggle);
       }
 

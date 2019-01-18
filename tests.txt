@@ -1,0 +1,11 @@
+set,device,o*1*,constraint/mode,REMOTE_OR_FAIL
+verbose,include,devices,o*
+set,device,o*1*,constraint/passed,TRUE
+verbose,include,devices,o*
+#wait 1 minute (for remote to time out)
+verbose,include,devices,o*
+set,device,o*1*,constraint/passed,TRUE
+verbose,include,devices,o*
+set,device,o*1*,constraint/passed,FALSE
+set,device,o*1*,constraint/mode,REMOTE_OR_PASS
+

@@ -6,6 +6,7 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <algorithm>
 #include <functional>
 
 using namespace std;
@@ -25,7 +26,7 @@ namespace automation {
 
     virtual double getValueImpl() const = 0;
     virtual void setValueImpl(double dVal) = 0;
-    virtual const string getType() const = 0;
+    RTTI_GET_TYPE_DECL;
 
     virtual double getValue() const {
       return getValueImpl();
@@ -38,6 +39,10 @@ namespace automation {
 
     virtual bool asBoolean() const {
       return getValue() != 0;
+    }
+
+    virtual const string getOwnerName() const {
+        return pDevice ? pDevice->name : "";
     }
 
     virtual const string asString() const {
@@ -56,7 +61,7 @@ namespace automation {
       if (ss >> d ) {
         setValue(d);
       } else {
-        cout << "WARNING " << __PRETTY_FUNCTION__ <<  " failed parsing " + strVal + " to double." << endl;
+        logBuffer << F("WARNING ") << __PRETTY_FUNCTION__ <<  F(" failed parsing ") << strVal << F(" to double.") << endl;
       }
     }
 
@@ -83,7 +88,7 @@ namespace automation {
     virtual const string getTitle() const {
       string str(getType());
       str += " '";
-      str += pDevice->name;
+      str += getOwnerName();
       str += "'";
       return str;
     }
@@ -92,7 +97,7 @@ namespace automation {
       return pDevice ? pDevice->name : "";
     }
 
-    virtual void print(int depth);
+    virtual void print(int depth = 0);
     virtual void printVerbose(int depth = 0 ) { print(depth); }
 
     friend std::ostream &operator<<(std::ostream &os, const Capability &c) {

@@ -2,6 +2,7 @@
 #define ARDUINO_SOLAR_SKETCH_ARDUINO_H
 
 #include <Time.h>
+#include <avr/wdt.h>
 
 namespace arduino {
   const float Vref = 5.0;  //TODO read from mega board
@@ -34,6 +35,20 @@ namespace arduino {
       String msg("INVALID:");
       msg += (unsigned int) fmt;
       return msg;
+    }
+  }
+
+  namespace watchdog {
+    const auto KeepAliveMs = WDTO_8S;
+    bool resetRequested = false;
+        
+    void enable() {
+      wdt_enable(KeepAliveMs);
+    }
+
+    void keepAlive() {
+      while( resetRequested ); // this will lock program and prevent wdt_reset which will cause reboot
+      wdt_reset();
     }
   }
 
@@ -79,7 +94,8 @@ namespace arduino {
 #define INDEX_OUT_OF_BOUNDS -2
 #define EEPROM_CMD_ARRAY_FULL -3
 #define EEPROM_CMD_NOT_FOUND -4
-#define UNEXPECTED_CMD_ARGUMENT -5
+#define INVALID_CMD_ARGUMENT -5
+#define NO_NAME_MATCHES -6
 
   String errorDesc( const String& context, int errorCode ) {
     String rtn(context);
@@ -97,8 +113,8 @@ namespace arduino {
       case EEPROM_CMD_NOT_FOUND:
         rtn += F("EEPROM_CMD_NOT_FOUND");
         break;
-      case UNEXPECTED_CMD_ARGUMENT:
-        rtn += F("UNEXPECTED_CMD_ARGUMENT");
+      case INVALID_CMD_ARGUMENT:
+        rtn += F("INVALID_CMD_ARGUMENT");
         break;
       default:
         ;

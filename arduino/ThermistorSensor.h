@@ -4,6 +4,7 @@
 
 #include "AnalogSensor.h"
 
+namespace arduino {
 class ThermistorSensor : public AnalogSensor {
   public:
   float beta; //3950.0,  3435.0 
@@ -23,6 +24,9 @@ class ThermistorSensor : public AnalogSensor {
   {
   }
 
+  RTTI_GET_TYPE_IMPL(arduino,ThermistorSensor)
+ 
+  
   float getValueImpl() const override {
     return this->readBetaCalculatedTemp();
   }
@@ -39,5 +43,5 @@ class ThermistorSensor : public AnalogSensor {
     return tFahrenheit;
   }
 };
-
+}
 #endif

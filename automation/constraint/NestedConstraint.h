@@ -7,9 +7,8 @@ namespace automation {
 
   class NestedConstraint : public Constraint {
   public:
-    explicit NestedConstraint(Constraint *pConstraint, const string &outerTitle = "NESTED") :
-        pConstraint(pConstraint),
-        outerTitle(outerTitle) {
+    explicit NestedConstraint(Constraint *pConstraint) :
+        pConstraint(pConstraint) {
     }
 
     virtual bool outerCheckValue(bool bInnerResult) = 0;
@@ -18,22 +17,20 @@ namespace automation {
       return outerCheckValue(pConstraint->checkValue());
     }
 
-    string getTitle() override {
-      string title = outerTitle;
+    string getTitle() const override {
+      string title = getType();
       title += "(";
       title += pConstraint->getTitle();
       title += ")";
       return title;
     }
 
-    bool isSynchronizable() override {
+    bool isSynchronizable() const override {
       return pConstraint->isSynchronizable();
     }
 
   protected:
     Constraint *pConstraint;
-    string outerTitle;
-
   };
 
 }

@@ -4,7 +4,7 @@
 #include "Arduino.h"
 
 #include "../automation/Automation.h"
-#include "../automation/Sensor.h"
+#include "../automation/sensor/Sensor.h"
 
 using namespace arduino;
 

@@ -10,6 +10,8 @@ namespace automation {
 
 class TransitionDurationConstraint : public Constraint {
   public:
+    RTTI_GET_TYPE_IMPL(automation,TransitionDuration)
+    
     unsigned long minIntervalMs;
 
   TransitionDurationConstraint(unsigned int minIntervalMs, Capability* pCapability, double originValue, double destinationValue, double defaultValue = NAN) :
@@ -18,7 +20,7 @@ class TransitionDurationConstraint : public Constraint {
     }
 
     // don't check for simultaneous events if doing a bulk synchronize of state
-    bool isSynchronizable() override {
+    bool isSynchronizable() const override {
       return false;
     }
 
@@ -42,7 +44,7 @@ class TransitionDurationConstraint : public Constraint {
       return bValuePassedForDuration;
     }
 
-    string getTitle() override {
+    string getTitle() const override {
       stringstream ss;
       ss << "TransitionDuration(" << minIntervalMs << "," << pCapability->getTitle() << " " << originValue << "-->" << destinationValue << ")";
       return ss.str();

@@ -13,6 +13,8 @@ namespace arduino {
 
   class PowerSensor : public ArduinoSensor {
   public:
+    RTTI_GET_TYPE_IMPL(arduino,PowerSensor)
+  
     VoltageSensor *pVoltageSensor;
     CurrentSensor *pCurrentSensor;
 

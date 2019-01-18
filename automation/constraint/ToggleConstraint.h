@@ -8,6 +8,7 @@ namespace automation {
 
   class ToggleStateConstraint : public Constraint {
   public:
+    RTTI_GET_TYPE_IMPL(automation,ToggleState)
     Toggle *pToggle;
     bool bAcceptState;
 
@@ -20,7 +21,7 @@ namespace automation {
       return pToggle->asBoolean() == bAcceptState;
     }
 
-    string getTitle() override {
+    string getTitle() const override {
       string title = pToggle->getTitle();
       title += (bAcceptState ? " ON" : " OFF");
       return title;

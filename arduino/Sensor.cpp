@@ -1,6 +1,6 @@
 
-#include "../automation/Sensor.h"
-#include "../automation/CompositeSensor.h"
+#include "../automation/sensor/Sensor.h"
+#include "../automation/sensor/CompositeSensor.h"
 
 #include "JsonWriter.h"
 
@@ -17,7 +17,6 @@ void Sensor::print(int depth)
     w.decreaseDepth();
     w.print("}");
   }
-
 }
 
 void CompositeSensor::printVerbose(int depth)
