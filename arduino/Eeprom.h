@@ -54,6 +54,7 @@ namespace arduino {
     }
 
     int getCommandAt(int index, String &dest) {
+      //cout << __PRETTY_FUNCTION__ << " index=" << index << endl;
       if (index >= getCommandCount()) {
         return INDEX_OUT_OF_BOUNDS;
       }
@@ -89,19 +90,44 @@ namespace arduino {
     }
 
     int addCommand(const char* cmd) {
-      size_t cmdCnt = getCommandCount();
-      if ( cmdCnt >= CMD_ARR_MAX_ROW_COUNT ) {
-        return EEPROM_CMD_ARRAY_FULL;
-      } else {
-        cmdCnt++;
-        setCommandCount(cmdCnt);
-        setCommandAt(cmdCnt-1,cmd);
-        //cout << __PRETTY_FUNCTION__ << " added command '" << cmd << "' at index " << cmdCnt-1 << endl;        
+      return insertCommandAt(-1,cmd);
+    }
+
+    int insertCommandAt(int index, const char* cmd) {
+      if ( !cmd ) {
+        return NULL_ARGUMENT;
       }
+      size_t cmdCnt = getCommandCount();
+      if ( index == -1 ) {
+        index = cmdCnt; // append 
+      } else if ( index < 0 || index > cmdCnt ) {
+        return INDEX_OUT_OF_BOUNDS;
+      } else if ( cmdCnt >= CMD_ARR_MAX_ROW_COUNT ) {
+        return EEPROM_CMD_ARRAY_FULL;
+      }
+      setCommandCount(cmdCnt+1);
+
+      // shift everything to make room
+      for ( int i = cmdCnt; i > index; i-- ) {
+        String tmp;
+        int code = getCommandAt(i-1,tmp);
+        if ( code ) {
+          return code;
+        }
+        code = setCommandAt(i,tmp.c_str());
+        if ( code ) {
+          return code;
+        }
+      }
+
+      setCommandAt(index,cmd);
       return CMD_OK;
     }
 
     int findCommand(const char* searchPattern) {
+      if ( !searchPattern ) {
+        return NULL_SEARCH_PATTERN;
+      }
       size_t cmdCnt = getCommandCount();
       for( int i = 0; i < cmdCnt; i++ ) {
         String cmd;
@@ -114,12 +140,33 @@ namespace arduino {
       return EEPROM_CMD_NOT_FOUND;
     }
 
-    int removeCommand(const char* searchPattern) {
+    int removeCommand(const char* searchPattern, bool bRemoveAllMatches = false) {
+      int removedCnt = 0;
+      int index;
+      while ( (index = findCommand(searchPattern)) >= 0 ) {
+        int rtnCode = removeCommandAt(index);
+        if ( rtnCode != CMD_OK ) {
+          return rtnCode;
+        } else {
+          removedCnt++;
+          if ( !bRemoveAllMatches ) {
+            break;
+          }
+        }
+      };
+      return removedCnt;
+    }
+
+    int replaceCommand(const char* searchPattern,const char* cmd, bool bAddIfNotFound = false) {
       int index = findCommand(searchPattern);
-      if ( index != EEPROM_CMD_NOT_FOUND ) {
-        return removeCommandAt(index);
+      if ( index == EEPROM_CMD_NOT_FOUND) {
+        if ( bAddIfNotFound ) {
+            return addCommand(cmd);
+        } else {
+            return EEPROM_CMD_NOT_FOUND;
+        }
       } else {
-        return EEPROM_CMD_NOT_FOUND;
+        return setCommandAt(index,cmd);
       }
     }
 
@@ -142,13 +189,10 @@ namespace arduino {
       w.noPrefixPrintln("[");
       w.increaseDepth();
       for( int i = 0; i < cmdCnt; i++ ) {
-        if ( i > 0 ) {
-          w.noPrefixPrintln(",");
-        }
         getCommandAt(i,str);
-        w.printStringObj(F("command"), str);
+        w.printStringObj(F("command"),str);
+        w.noPrefixPrintln( (i+1 < cmdCnt) ? "," : "");
       }
-      //w.noPrefixPrintln(); bug - this should not cause checksum error
       w.decreaseDepth();
       w.println("]");
       w.decreaseDepth();

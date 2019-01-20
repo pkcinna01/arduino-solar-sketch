@@ -1,6 +1,6 @@
 #define ARDUINO_APP
-#define VERSION "SOLAR-1.1"
-#define BUILD_NUMBER 2
+#define VERSION "SOLAR-1.3"
+#define BUILD_NUMBER 1
 #define BUILD_DATE __DATE__
 
 #include <EEPROM.h>
@@ -51,20 +51,20 @@ using namespace automation;
 using namespace std;
 using namespace arduino;
 
-ThermistorSensor charger1Temp("Charger 1 Temp",0),
-                 charger2Temp("Charger 2 Temp",1),
-                 sunroomTemp("Sunroom Temp",2),
-                 atticTemp("Attic Temp",3),
-                 inverterTemp("Inverter Temp",4);
+ThermistorSensor charger1Temp("Charger 1 Temp", 0),
+                 charger2Temp("Charger 2 Temp", 1),
+                 sunroomTemp("Sunroom Temp", 2),
+                 atticTemp("Attic Temp", 3),
+                 inverterTemp("Inverter Temp", 4);
 
-LightSensor lightLevel("Sunshine Level",5);                 
-                
+LightSensor lightLevel("Sunshine Level", 5);
+
 Dht dht(5);
-DhtTempSensor enclosureTempDht("Enclosure Temp (DHT)",dht);
+DhtTempSensor enclosureTempDht("Enclosure Temp (DHT)", dht);
 ThermistorSensor enclosureTemp("Enclosure Temp", 6);
-DhtHumiditySensor enclosureHumidityDht("Enclosure Humidity",dht);
-VoltageSensor batteryBankVoltage("Battery Bank Voltage", 9, 1016000,101100);
-VoltageSensor batteryBankBVoltage("Battery Bank B Voltage", 10, 1016000,101100);
+DhtHumiditySensor enclosureHumidityDht("Enclosure Humidity", dht);
+VoltageSensor batteryBankVoltage("Battery Bank Voltage", 9, 1016000, 101100);
+VoltageSensor batteryBankBVoltage("Battery Bank B Voltage", 10, 1016000, 101100);
 vector<Sensor*> mainAndBankBDelta { &batteryBankVoltage, &batteryBankBVoltage };
 CompositeSensor batteryBankAVoltage("Battery Bank A Voltage", mainAndBankBDelta, Sensor::delta);
 CurrentSensor batteryBankCurrent("Battery Bank Current");
@@ -78,8 +78,8 @@ arduino::CoolingFan exhaustFan("Enclosure Exhaust Fan", 22, enclosureTemp, 95, 9
 arduino::CoolingFan chargerGroupFan("Charger Group Fan", 23, chargerGroupTemp, 110, 105, LOW);
 arduino::CoolingFan inverterFan("Inverter Fan", 24, inverterTemp, 110, 105, LOW);
 
-struct MinBatteryBankVoltage : AtLeast<float,Sensor&> {
-  MinBatteryBankVoltage(float volts) : AtLeast(volts, batteryBankVoltage) {    
+struct MinBatteryBankVoltage : AtLeast<float, Sensor&> {
+  MinBatteryBankVoltage(float volts) : AtLeast(volts, batteryBankVoltage) {
   }
 };
 
@@ -87,7 +87,7 @@ struct MinBatteryBankVoltage outletsMinSteadySupplyVoltage(23);
 struct MinBatteryBankVoltage outletsMinDipSupplyVoltage(21.5);
 
 //struct MaxBatteryBankPower : AtMost<float,Sensor&> {
-//  MaxBatteryBankPower(float watts) : AtMost(watts, batteryBankPower) {    
+//  MaxBatteryBankPower(float watts) : AtMost(watts, batteryBankPower) {
 //  }
 //};
 
@@ -96,7 +96,7 @@ struct InverterSwitch : public arduino::PowerSwitch {
   InverterSwitch() : arduino::PowerSwitch("Inverter Switch", 25, LOW) {
     setConstraint(&defaultOff);
   }
-  RTTI_GET_TYPE_IMPL(main,InverterSwitch)  
+  RTTI_GET_TYPE_IMPL(main, InverterSwitch)
 } inverterSwitch;
 
 struct BatteryBankSwitch : public arduino::PowerSwitch {
@@ -104,15 +104,15 @@ struct BatteryBankSwitch : public arduino::PowerSwitch {
   BatteryBankSwitch(const char* title, int pin) : arduino::PowerSwitch(title, pin, LOW) {
     setConstraint(&defaultOff);
   }
-  RTTI_GET_TYPE_IMPL(main,BatteryBankSwitch)  
+  RTTI_GET_TYPE_IMPL(main, BatteryBankSwitch)
 } batteryBankASwitch("Battery Bank A Switch", 26), batteryBankBSwitch("Battery Bank B Switch", 27);
 
 struct OutletSwitch : public arduino::PowerSwitch {
   AndConstraint constraints { {&outletsMinSteadySupplyVoltage, &outletsMinDipSupplyVoltage} };
   OutletSwitch(const string& name, int pin, int onValue = HIGH) : arduino::PowerSwitch(name, pin, onValue) {
     setConstraint(&constraints);
-    outletsMinDipSupplyVoltage.setPassDelayMs(5*MINUTES).setFailDelayMs(15*SECONDS).setPassMargin(2);
-    outletsMinSteadySupplyVoltage.setPassDelayMs(15*MINUTES).setFailDelayMs(1*MINUTES).setPassMargin(2);
+    outletsMinDipSupplyVoltage.setPassDelayMs(5 * MINUTES).setFailDelayMs(15 * SECONDS).setPassMargin(2);
+    outletsMinSteadySupplyVoltage.setPassDelayMs(15 * MINUTES).setFailDelayMs(1 * MINUTES).setPassMargin(2);
   }
 };
 
@@ -125,30 +125,30 @@ struct Outlet2Switch : public OutletSwitch {
 } outlet2Switch;
 
 
-Devices devices {{ 
-    &exhaustFan, &chargerGroupFan, &inverterFan, 
-    &inverterSwitch, 
-    &batteryBankASwitch, &batteryBankBSwitch, 
+Devices devices {{
+    &exhaustFan, &chargerGroupFan, &inverterFan,
+    &inverterSwitch,
+    &batteryBankASwitch, &batteryBankBSwitch,
     &outlet1Switch, &outlet2Switch
-}};
+  }};
 
-Sensors sensors {{ 
-    &chargerGroupTemp, 
+Sensors sensors {{
+    &chargerGroupTemp,
     &batteryBankVoltage, &batteryBankCurrent, &batteryBankPower,
-    &batteryBankAVoltage,&batteryBankBVoltage,
-    &atticTemp, &enclosureTemp, 
-    &enclosureTempDht, &enclosureHumidityDht, 
-    &charger1Temp, &charger2Temp, &inverterTemp, //&sunroomTemp, 
-    &exhaustFan.toggleSensor, &chargerGroupFan.toggleSensor, 
+    &batteryBankAVoltage, &batteryBankBVoltage,
+    &atticTemp, &enclosureTemp,
+    &enclosureTempDht, &enclosureHumidityDht,
+    &charger1Temp, &charger2Temp, &inverterTemp, //&sunroomTemp,
+    &exhaustFan.toggleSensor, &chargerGroupFan.toggleSensor,
     &inverterFan.toggleSensor, &inverterSwitch.toggleSensor,
     &batteryBankASwitch.toggleSensor, &batteryBankBSwitch.toggleSensor,
-    &outlet1Switch.toggleSensor, &outlet2Switch.toggleSensor,    
+    &outlet1Switch.toggleSensor, &outlet2Switch.toggleSensor,
     &lightLevel
-}};
+  }};
 
 void setup() {
-  Serial.begin(38400, SERIAL_8O1); // bit usage: 8 data, odd parity, 1 stop
-  //Serial.begin(38400, SERIAL_8N1); // for IDE testing
+  //Serial.begin(38400, SERIAL_8O1); // bit usage: 8 data, odd parity, 1 stop
+  Serial.begin(38400, SERIAL_8N1); // for IDE testing
 
   String version;
   eeprom.getVersion(version);
@@ -157,7 +157,7 @@ void setup() {
     gLastInfoMsg = F("Version changed. Clearing EEPROM and saving defaults.  Old: ");
     gLastInfoMsg += version;
     gLastInfoMsg += " New: ";
-    gLastInfoMsg += VERSION;   
+    gLastInfoMsg += VERSION;
     eeprom.setVersion(VERSION);
     eeprom.setJsonFormat(arduino::jsonFormat);
     eeprom.setCommandCount(0);
@@ -170,15 +170,15 @@ void setup() {
     NullWriter writer;
     //JsonSerialWriter writer;
     writer.println("[").increaseDepth();
-    CommandProcessor<NullWriter>::setup(writer,sensors,devices);
+    CommandProcessor<NullWriter>::setup(writer, sensors, devices);
     //cout << writer.serial.ss.str() << endl;
     writer.decreaseDepth().println("]");
   }
-  
-  for(Sensor* pSensor : sensors) {
+
+  for (Sensor* pSensor : sensors) {
     pSensor->setup();
   }
-  for(Device* pDevice : devices) {
+  for (Device* pDevice : devices) {
     pDevice->setup();
   }
 
@@ -189,7 +189,7 @@ void loop() {
   static unsigned long lastUpdateTimeMs = 0, beginCmdReadTimeMs = 0;
   static unsigned int updateIntervalMs = 10000;
   static char commandBuff[200];
-  static size_t bytesRead = 0; 
+  static size_t bytesRead = 0;
 
   bool msgSizeExceeded = false;
   bool cmdReady = false;
@@ -197,12 +197,12 @@ void loop() {
   unsigned long currentTimeMs = millis();
 
   // read char by char to avoid issues with default 64 byte serial buffer
-  while (Serial.available() ) {   
+  while (Serial.available() ) {
     char c = Serial.read();
     if ( bytesRead == 0 ) {
       if ( c == -1 )
         continue;
-      else 
+      else
         beginCmdReadTimeMs = millis();
     }
     commandBuff[bytesRead++] = c;
@@ -211,28 +211,28 @@ void loop() {
       cmdReady = true;
       break;
     } else if ( bytesRead >= sizeof commandBuff ) {
-      commandBuff[bytesRead-1] = '\0';
+      commandBuff[bytesRead - 1] = '\0';
       msgSizeExceeded = true;
       break;
-    } 
+    }
   }
 
   if ( cmdReady && strlen(commandBuff) || (currentTimeMs - lastUpdateTimeMs) > updateIntervalMs )
   {
-    for(Device* pDevice : devices) {
+    for (Device* pDevice : devices) {
       pDevice->applyConstraint(false);
-    } 
+    }
     lastUpdateTimeMs = currentTimeMs;
   } else if ( beginCmdReadTimeMs > 0 && (currentTimeMs - beginCmdReadTimeMs) > updateIntervalMs ) {
     msgReadTimedOut = true;
   }
-  
+
   if ( cmdReady || msgReadTimedOut ) {
 
-    char *pszCmd = strtok(commandBuff, "|");            
-    char *pszRequestId = strtok(NULL,"|");
+    char *pszCmd = strtok(commandBuff, "|");
+    char *pszRequestId = strtok(NULL, "|");
     unsigned int requestId = atoi(pszRequestId);
-     
+
     JsonSerialWriter writer;
     JsonSerialWriter::clearByteCount();
     JsonSerialWriter::clearChecksum();
@@ -241,9 +241,9 @@ void loop() {
     writer.implPrintln("#");
     writer.println( "[" );
     writer.increaseDepth();
-    CommandProcessor<JsonSerialWriter> cmdProcessor(writer,sensors,devices);
-      
-    if ( msgReadTimedOut ) 
+    CommandProcessor<JsonSerialWriter> cmdProcessor(writer, sensors, devices);
+
+    if ( msgReadTimedOut )
     {
       writer.println("{");
       cmdProcessor.beginResp();
@@ -263,9 +263,9 @@ void loop() {
     {
       arduino::watchdog::keepAlive();
       automation::client::watchdog::messageReceived();
-      int respCode = cmdProcessor.execute(pszCmd);     
+      int respCode = cmdProcessor.execute(pszCmd);
     }
-    
+
     writer.decreaseDepth();
     writer.print("]");
     writer.implPrint(F("\n#END:"));

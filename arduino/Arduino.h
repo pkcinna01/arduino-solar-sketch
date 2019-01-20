@@ -96,6 +96,9 @@ namespace arduino {
 #define EEPROM_CMD_NOT_FOUND -4
 #define INVALID_CMD_ARGUMENT -5
 #define NO_NAME_MATCHES -6
+#define NULL_SEARCH_PATTERN -7
+#define NULL_ARGUMENT -8
+
 
   String errorDesc( const String& context, int errorCode ) {
     String rtn(context);
@@ -115,6 +118,12 @@ namespace arduino {
         break;
       case INVALID_CMD_ARGUMENT:
         rtn += F("INVALID_CMD_ARGUMENT");
+        break;
+      case NULL_SEARCH_PATTERN:
+        rtn += F("NULL_SEARCH_PATTERN");
+        break;
+      case NULL_ARGUMENT:
+        rtn += F("NULL_ARGUMENT");
         break;
       default:
         ;

@@ -69,10 +69,10 @@ public:
     w.increaseDepth();
     w.printlnStringObj(F("name"),name.c_str(),",");
     if ( bVerbose ) {
-      w.printlnNumberObj(F("sensorPin"),sensorPin);
-      w.printlnNumberObj(F("sampleCnt"),sampleCnt);
-      w.printlnNumberObj(F("sampleIntervalMs"),sampleIntervalMs);
-      w.printlnStringObj(F("type"),getType().c_str());
+      w.printlnNumberObj(F("sensorPin"),sensorPin,",");
+      w.printlnNumberObj(F("sampleCnt"),sampleCnt,",");
+      w.printlnNumberObj(F("sampleIntervalMs"),sampleIntervalMs,",");
+      w.printlnStringObj(F("type"),getType().c_str(),",");
     }
     if ( status.code == 0 ) {
       w.printlnNumberObj(F("value"),value);

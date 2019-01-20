@@ -180,6 +180,14 @@ namespace arduino {
         if ( respCode != CMD_OK ) {
           writer + errorDesc(F("SETUP,ADD"),respCode);
         }
+      } else if (!strcasecmp_P(pszAction, PSTR("INSERT_AT"))) {
+        const char* pszIndex = strtok(NULL, ",\r\n");
+        const char* pszCmd = strtok(NULL, "\r\n");
+        int index = atoi(pszIndex);
+        respCode = eeprom.insertCommandAt(index,pszCmd);
+        if ( respCode != CMD_OK ) {
+          writer + errorDesc(F("SETUP,INSERT_AT"),respCode);
+        }
       } else if (!strcasecmp_P(pszAction, PSTR("REPLACE_AT"))) {
         const char* pszIndex = strtok(NULL, ",\r\n");
         const char* pszCmd = strtok(NULL, "\r\n");
@@ -188,11 +196,35 @@ namespace arduino {
         if ( respCode != CMD_OK ) {
           writer + errorDesc(F("SETUP,REPLACE_AT"),respCode);
         }
+      } else if (!strcasecmp_P(pszAction, PSTR("REPLACE")) || !strcasecmp_P(pszAction, PSTR("REPLACE_OR_ADD"))) {
+        const char* pszDelimiter = strtok(NULL, ",\r\n");
+        const char* pszSearchPattern = strtok(NULL, pszDelimiter);
+        const char* pszCmd = strtok(NULL, "\r\n");
+        respCode = eeprom.replaceCommand(pszSearchPattern,pszCmd,strcasecmp_P(pszAction, PSTR("REPLACE")));
+        if ( respCode != CMD_OK ) {
+          writer + errorDesc(F("SETUP,REPLACE"),respCode);
+        }
       } else if (!strcasecmp_P(pszAction, PSTR("REMOVE"))) {
         const char* pszCmd = strtok(NULL, "\r\n");
         respCode = eeprom.removeCommand(pszCmd);
-        if ( respCode != CMD_OK ) {
+        if ( respCode == 0 ) {
+          writer + F("Nothing removed for: '") + pszCmd + F("'");
+        } else if ( respCode < 0 ) {
           writer + errorDesc(F("SETUP,REMOVE"),respCode);
+        } else if ( respCode > 1 ) {
+          writer + F("Unexpected state... multiple items removed (count=") + respCode + F(").");
+          respCode = CMD_ERROR;
+        } else {
+          respCode = CMD_OK;
+        }
+      } else if (!strcasecmp_P(pszAction, PSTR("REMOVE_ALL"))) {
+        const char* pszCmd = strtok(NULL, "\r\n");
+        int removedCnt = eeprom.removeCommand(pszCmd,/*bRemoveAllMatches=*/true);
+        if ( removedCnt < 0 ) {
+          respCode = removedCnt;
+          writer + errorDesc(F("SETUP,REMOVE_ALL"),respCode);
+        } else {
+          writer + F("Removed ") + removedCnt + F(" entries matching: '") + pszCmd + F("'");
         }
       } else if (!strcasecmp_P(pszAction, PSTR("REMOVE_AT"))) {
         const char* pszIndex = strtok(NULL, ",\r\n");
@@ -202,7 +234,7 @@ namespace arduino {
           writer + errorDesc(F("SETUP,REMOVE_AT"),respCode);
         }
       } else {
-        writer + F("SETUP expected {RUN|SET|ADD|REPLACE_AT|REMOVE|REMOVE_AT} but found: '") + pszAction + "'.";
+        writer + F("SETUP expected {RUN|SET|ADD|INSERT_AT|REPLACE|REPLACE_OR_ADD|REPLACE_AT|REMOVE|REMOVE_ALL|REMOVE_AT} but found: '") + pszAction + "'.";
         respCode = INVALID_CMD_ARGUMENT;
       }
       endResp(respCode);

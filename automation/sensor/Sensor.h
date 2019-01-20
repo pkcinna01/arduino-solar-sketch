@@ -32,7 +32,7 @@ namespace automation {
   
     virtual void print(int depth = 0);
 
-    virtual void printVerbose(int depth = 0 ) { print(depth); }
+    virtual void printVerbose(int depth = 0 );
 
     virtual const string& getTitle() const {
       return name;
