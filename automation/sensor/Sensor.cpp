@@ -1,6 +1,10 @@
 #include "Sensor.h"
+#include "CompositeSensor.h"
+#include "../json/JsonWriter.h"
 
 #include <algorithm>
+
+using namespace automation::json;
 
 namespace automation {
 
@@ -27,5 +31,45 @@ namespace automation {
   float Sensor::delta(const vector<Sensor*>& sensors) {
     return sensors[0]->getValue() - sensors[1]->getValue();
   }
+
+  void Sensor::print(JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const {
+    float value = getValue();
+    if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
+    w.increaseDepth();
+    w.printlnStringObj(F("name"), name.c_str(), ",");
+    w.printlnNumberObj(F("value"), value, ",");
+    if ( bVerbose ) {
+      w.printlnStringObj(F("type"), getType().c_str());
+    }
+    w.decreaseDepth();
+    w.print("}");
+  }
+
+  void CompositeSensor::print(JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const {
+    if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
+    w.increaseDepth();
+    w.printlnStringObj(F("name"), name.c_str(), ",");
+    if ( bVerbose ) {
+      w.printKey(F("sensors"));
+      w.noPrefixPrintln("[");
+      bool bFirst = true;
+      for (Sensor *s : sensors) {
+        if (bFirst) {
+          bFirst = false;
+        } else {
+          w.noPrefixPrintln(",");
+        }
+        w.increaseDepth();
+        s->print(w,bVerbose,true);
+        w.decreaseDepth();
+      }
+      w.noPrefixPrintln("");
+      w.println("],");
+    }
+    w.printlnNumberObj(F("value"), getValue());
+    w.decreaseDepth();
+    w.print("}");
+  }
+
 }
 

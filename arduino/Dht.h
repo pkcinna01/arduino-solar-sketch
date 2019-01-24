@@ -60,6 +60,7 @@ class Dht : public DHT {
     return rtn;
   }
 
+/*
   virtual void print(int depth = 1)
   {
     float temp = readTemp();
@@ -82,5 +83,6 @@ class Dht : public DHT {
      .decreaseDepth()
      .print("}");
   }
+  */
 };
 #endif

@@ -11,6 +11,7 @@
 
 // automation includes not specific to arduino
 #include "automation/Automation.h"
+#include "automation/json/JsonWriter.h"
 #include "automation/sensor/Sensor.h"
 #include "automation/sensor/CompositeSensor.h"
 #include "automation/constraint/Constraint.h"
@@ -20,11 +21,12 @@
 #include "automation/constraint/AndConstraint.h"
 #include "automation/sensor/Sensor.cpp"
 #include "automation/device/Device.cpp"
+#include "automation/capability/Capability.cpp"
+#include "automation/constraint/Constraint.cpp"
 
 using namespace automation;
 
 #include "arduino/Arduino.h"
-#include "arduino/JsonWriter.h"
 #include "arduino/Dht.h"
 #include "arduino/DhtHumiditySensor.h"
 #include "arduino/DhtTempSensor.h"
@@ -38,10 +40,6 @@ using namespace automation;
 #include "arduino/CommandProcessor.h"
 #include "arduino/Eeprom.h"
 #include "arduino/Automation.cpp"
-#include "arduino/Sensor.cpp"
-#include "arduino/Device.cpp"
-#include "arduino/Capability.cpp"
-#include "arduino/Constraint.cpp"
 
 #include <vector>
 #include <sstream>
@@ -159,20 +157,16 @@ void setup() {
     gLastInfoMsg += " New: ";
     gLastInfoMsg += VERSION;
     eeprom.setVersion(VERSION);
-    eeprom.setJsonFormat(arduino::jsonFormat);
+    eeprom.setJsonFormat(automation::json::jsonFormat);
     eeprom.setCommandCount(0);
   }
   else
   {
     gLastInfoMsg = F("Loading EEPROM data for version ");
     gLastInfoMsg += version;
-    arduino::jsonFormat = eeprom.getJsonFormat();
-    NullWriter writer;
-    //JsonSerialWriter writer;
-    writer.println("[").increaseDepth();
-    CommandProcessor<NullWriter>::setup(writer, sensors, devices);
-    //cout << writer.serial.ss.str() << endl;
-    writer.decreaseDepth().println("]");
+    json::jsonFormat = eeprom.getJsonFormat();
+    JsonStreamWriter writer(json::nullStreamPrinter);
+    CommandProcessor::setup(writer, sensors, devices);
   }
 
   for (Sensor* pSensor : sensors) {
@@ -234,14 +228,14 @@ void loop() {
     unsigned int requestId = atoi(pszRequestId);
 
     JsonSerialWriter writer;
-    JsonSerialWriter::clearByteCount();
-    JsonSerialWriter::clearChecksum();
+    writer.clearByteCount();
+    writer.clearChecksum();
     writer.implPrint(F("#BEGIN:"));
     writer.implPrint(requestId);
     writer.implPrintln("#");
     writer.println( "[" );
     writer.increaseDepth();
-    CommandProcessor<JsonSerialWriter> cmdProcessor(writer, sensors, devices);
+    CommandProcessor cmdProcessor(writer, sensors, devices);
 
     if ( msgReadTimedOut )
     {
@@ -271,9 +265,9 @@ void loop() {
     writer.implPrint(F("\n#END:"));
     writer.implPrint(requestId);
     writer.implPrint(":");
-    writer.implPrint(JsonSerialWriter::getByteCount());
+    writer.implPrint(writer.getByteCount());
     writer.implPrint(":");
-    writer.implPrint(JsonSerialWriter::getChecksum());
+    writer.implPrint(writer.getChecksum());
     writer.implPrintln("#");
 
     bytesRead = 0; // reset commandBuff

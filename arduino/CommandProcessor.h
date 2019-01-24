@@ -3,35 +3,37 @@
 
 
 #include "Arduino.h"
-#include "JsonWriter.h"
+#include "../automation/json/JsonWriter.h"
+#include "../automation/json/json.h"
 #include "Eeprom.h"
 
 #include "../automation/capability/Capability.h"
+#include "watchdog.h"
 
 #include <vector>
 #include <string>
 
 using namespace std;
+using namespace automation::json;
 
 namespace arduino {
 
-  template<typename T>
   class CommandProcessor {
 
   public:
 
-    T &writer;
+    JsonStreamWriter &writer;
     Sensors &sensors;
     Devices &devices;
 
-    static void setup(T &writer, Sensors &sensors, Devices &devices) {
+    static void setup(JsonStreamWriter& writer, Sensors &sensors, Devices &devices) {
 
       // run script lines from EEPROM
-      CommandProcessor<T> cmdProcessor(writer,sensors,devices);
+      CommandProcessor cmdProcessor(writer,sensors,devices);
       cmdProcessor.runSetup();
     }
 
-    CommandProcessor(T &writer, Sensors &sensors, Devices &devices)
+    CommandProcessor(JsonStreamWriter &writer, Sensors &sensors, Devices &devices)
         : writer(writer),
           sensors(sensors),
           devices(devices) {
@@ -58,12 +60,12 @@ namespace arduino {
       return CMD_OK;
     }
 
-    T &beginResp() {
+    JsonStreamWriter &beginResp() {
       writer.beginStringObj(F("respMsg"));
       return writer;
     }
 
-    T &endResp(int respCode) {
+    JsonStreamWriter &endResp(int respCode) {
       if ( writer.getOpenStringValByteCnt() <= 0 ) {
         writer + (respCode == 0 ? F("OK") : F("ERROR"));
       }
@@ -138,7 +140,7 @@ namespace arduino {
         bVerbose = true;
         respCode = executeLine(pszCmd,bVerbose);
       } else {
-        beginResp() + F("Expected {GET|INCLUDE|EXCLUDE|SET|SETUP|RESET|VERBOSE} but found: ") + pszCmdName;
+        beginResp() + F("Expected {GET|INCLUDE|EXCLUDE|SET|SETUP|RESET|VERBOSE} but found: ") + (pszCmdName?pszCmdName:"");
         endResp(INVALID_CMD_ARGUMENT);
       }
       return respCode;
@@ -163,7 +165,7 @@ namespace arduino {
         const char *pszField = strtok(NULL,", ");
         if ( !strcasecmp_P(pszField, PSTR("OUTPUT_FORMAT"))) {
           const char *pszFormat = strtok(NULL, ", \r\n");
-          JsonFormat fmt = arduino::parseFormat(pszFormat);
+          JsonFormat fmt = parseFormat(pszFormat);
           if ( fmt != JSON_FORMAT_INVALID ) {
             eeprom.setJsonFormat(fmt);
           } else {
@@ -273,10 +275,10 @@ namespace arduino {
           writer.println("},");
         } else if (!strcasecmp_P(pszArg, PSTR("SETUP")) || !strcasecmp_P(pszArg, PSTR("EEPROM"))) {
           writer.printKey(F("eeprom"));
-          eeprom.noPrefixPrint(2);
+          eeprom.noPrefixPrint(writer);
           writer.noPrefixPrintln(",");
         } else if (!strcasecmp_P(pszArg, PSTR("OUTPUT_FORMAT"))) {
-          writer.printlnStringObj(F("outputFormat"), formatAsString(arduino::jsonFormat), ",");
+          writer.printlnStringObj(F("outputFormat"), formatAsString(jsonFormat).c_str(), ",");
         } else if (!strcasecmp_P(pszArg, PSTR("SENSORS"))) {
           writer.printlnVectorObj(F("sensors"), sensors, ",",bVerbose);
         } else if (!strcasecmp_P(pszArg, PSTR("DEVICES"))) {
@@ -355,9 +357,9 @@ namespace arduino {
       if (!strcasecmp_P(pszArg, PSTR("OUTPUT_FORMAT"))) {
 
         const char *pszFormat = strtok(NULL, ", \r\n");
-        JsonFormat fmt = arduino::parseFormat(pszFormat);
+        JsonFormat fmt = parseFormat(pszFormat);
         if ( fmt != JSON_FORMAT_INVALID ) {
-          arduino::jsonFormat = fmt;
+          jsonFormat = fmt;
         } else {
           writer + F("Expected JSON_COMPACT|JSON_PRETTY but found: ") + pszFormat;
           respCode = 301;

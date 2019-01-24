@@ -50,22 +50,10 @@ public:
     }
   }
     
-  void print(int depth) override {
-    bool bVerbose = false;
-    print(depth,bVerbose);
-  }
 
-  void printVerbose(int depth) override {
-    bool bVerbose = true;
-    print(depth,bVerbose);
-  }
-
-  protected:
-
-  void print(int depth, bool bVerbose) {
+  void print(JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const override {
     float value = getValue();
-    JsonSerialWriter w(depth);
-    w.println("{");
+    if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
     w.increaseDepth();
     w.printlnStringObj(F("name"),name.c_str(),",");
     if ( bVerbose ) {
@@ -74,14 +62,12 @@ public:
       w.printlnNumberObj(F("sampleIntervalMs"),sampleIntervalMs,",");
       w.printlnStringObj(F("type"),getType().c_str(),",");
     }
-    if ( status.code == 0 ) {
-      w.printlnNumberObj(F("value"),value);
-    } else {
-      w.printlnNumberObj(F("value"),value,",");
+    if ( status.code != 0 ) {
       w.printKey(F("status"));
-      w.noPrefixPrintln("");
-      status.print(depth+1);
+      status.noPrefixPrint(w,bVerbose);
+      w.noPrefixPrintln(",");
     }
+    w.printlnNumberObj(F("value"),value);
     w.decreaseDepth();
     w.print("}");
   }

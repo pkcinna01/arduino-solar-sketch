@@ -3,7 +3,10 @@
 #define ARDUINO_VOLTAGE_SENSOR_H
 
 #include "AnalogSensor.h"
-#include "JsonWriter.h"
+#include "../automation/json/JsonWriter.h"
+
+using namespace automation::json;
+
 namespace arduino {
 class VoltageSensor : public AnalogSensor {
 public:
@@ -45,20 +48,22 @@ public:
     return vin;
   }
 
-  void printVerbose(int depth) override {
-    float assignedVcc = vcc;
+  void print(JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const override {
+   float assignedVcc = vcc;
     float assignedR1 = r1;
     float assignedR2 = r2;
 
-    JsonSerialWriter w(depth);
-    w.println("{");
+    if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
+    
     w.increaseDepth();
     w.printlnStringObj(F("name"), name.c_str(), ",");
-    w.printlnNumberObj(F("value"), getValue(), ",");
-    w.printlnNumberObj(F("analogPin"), sensorPin, ",");
-    w.printlnNumberObj(F("assignedVcc"), assignedVcc, ",");
-    w.printlnNumberObj(F("assignedR1"), assignedR1, ",");
-    w.printlnNumberObj(F("assignedR2"), assignedR2);
+    if ( bVerbose ) {
+      w.printlnNumberObj(F("analogPin"), sensorPin, ",");
+      w.printlnNumberObj(F("assignedVcc"), assignedVcc, ",");
+      w.printlnNumberObj(F("assignedR1"), assignedR1, ",");
+      w.printlnNumberObj(F("assignedR2"), assignedR2, ",");
+    }
+    w.printlnNumberObj(F("value"), getValue());
     w.decreaseDepth();
     w.print("}");
   }

@@ -3,6 +3,8 @@
 
 #include "Arduino.h"
 
+using namespace automation::json;
+
 namespace arduino {
 
 #define VERSION_SIZE 10
@@ -133,7 +135,7 @@ namespace arduino {
         String cmd;
         getCommandAt(i,cmd);
 
-        if ( automation::WildcardMatcher::test(searchPattern,cmd.c_str()) ) {
+        if ( text::WildcardMatcher::test(searchPattern,cmd.c_str()) ) {
           return i;
         }
       }
@@ -170,19 +172,19 @@ namespace arduino {
       }
     }
 
+//TBD - who calls this?
     void print(int depth=0) {
       JsonSerialWriter w(depth);
       w.print("");
-      noPrefixPrint(depth);
+      noPrefixPrint(w);
     }
-
-    void noPrefixPrint(int depth=0) {
-      JsonSerialWriter w(depth);
+    
+    void noPrefixPrint(JsonStreamWriter& w) {
       w.noPrefixPrintln("{");
       w.increaseDepth();
       String str;
       w.printlnStringObj(F("version"), getVersion(str), ",");
-      w.printlnStringObj(F("jsonFormat"), arduino::formatAsString(getJsonFormat()), ",");
+      w.printlnStringObj(F("jsonFormat"), formatAsString(getJsonFormat()).c_str(), ",");
       int cmdCnt = getCommandCount();
       w.printlnNumberObj(F("commandCount"), cmdCnt, ",");
       w.printKey(F("commands"));

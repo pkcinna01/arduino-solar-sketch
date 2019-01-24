@@ -1,5 +1,7 @@
 #include "Device.h"
 #include "../capability/Capability.h"
+#include "../json/JsonWriter.h"
+
 
 namespace automation {
 
@@ -11,8 +13,9 @@ void Device::applyConstraint(bool bIgnoreSameState, Constraint *pConstraint) {
     if ( automation::bSynchronizing && !pConstraint->isSynchronizable() ) {
         return;
     }
+    bool bLastPassed = pConstraint->isPassed();
     bool bPassed = pConstraint->test();
-    if (!bIgnoreSameState || bPassed != pConstraint->isPassed() ) {
+    if (!bIgnoreSameState || bPassed != bLastPassed ) {
       constraintResultChanged(bPassed);
     }
   }
@@ -33,7 +36,7 @@ bool Device::setAttribute(const char* pszKey, const char* pszVal, ostream* pResp
       }
     } else if ( !strcasecmp_P(pszKey,PSTR("CONSTRAINT/PASSED")) ) {
       if ( pConstraint ) {
-        pConstraint->overrideTestResult(automation::parseBool(pszVal));
+        pConstraint->overrideTestResult(text::parseBool(pszVal));
         //applyConstraint();
         if (pRespStream) {
             (*pRespStream) << "'" << pConstraint->getTitle() << "' " << pszKey << "=" << pConstraint->isPassed();
@@ -44,7 +47,7 @@ bool Device::setAttribute(const char* pszKey, const char* pszVal, ostream* pResp
       const char* pszTypePattern = &pszKey[CAPABILITY_PREFIX_SIZE];
       int matchCnt = 0;
       for (auto cap : capabilities) {
-        if (WildcardMatcher::test(pszTypePattern,cap->getType().c_str())) {
+        if (text::WildcardMatcher::test(pszTypePattern,cap->getType().c_str())) {
           cap->setValue(targetValue);
           matchCnt++;
           if (pRespStream) {
@@ -61,6 +64,27 @@ bool Device::setAttribute(const char* pszKey, const char* pszVal, ostream* pResp
     }
     return true;
   }
-};
+}
+
+void Device::print(json::JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const {
+  if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
+  w.increaseDepth();
+  w.printlnStringObj(F("name"),name.c_str(),",");
+  w.printlnStringObj(F("type"),getType().c_str(),",");    
+  w.printKey(F("constraint"));
+  if ( bVerbose ) {
+    pConstraint->print(w,bVerbose);
+    w.noPrefixPrintln(",");
+    w.printVectorObj(F("capabilities"), capabilities);
+    printVerboseExtra(w,bIncludePrefix);
+  } else {
+    w.noPrefixPrint("{ \"") + F("state\": ") + (pConstraint->isPassed() ? "PASSED" : "FAILED");
+    w.noPrefixPrintln(" }");
+  }    
+  w.decreaseDepth();
+  w.print("}");
+}
+
+
 
 }

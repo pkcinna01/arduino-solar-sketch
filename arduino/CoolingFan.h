@@ -39,9 +39,8 @@ namespace arduino {
       digitalWrite(relayPin,bOn?onValue:!onValue);
     }
 
-    void printVerboseExtra(int depth) override {
-      JsonSerialWriter w(depth);
-      w.noPrefixPrintln(",");
+    void printVerboseExtra(JsonStreamWriter& w, bool bIncludePrefix=false) const {
+      if ( bIncludePrefix ) w.println(","); else w.noPrefixPrintln(",");
       w.printlnNumberObj(F("relayPin"),relayPin,",");
       w.printlnNumberObj(F("onValue"),onValue,",");
       w.printlnNumberObj(F("onTemp"),minTemp.pThreshold->getValue() + minTemp.getPassMargin(),",");

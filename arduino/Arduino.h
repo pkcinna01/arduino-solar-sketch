@@ -2,56 +2,13 @@
 #define ARDUINO_SOLAR_SKETCH_ARDUINO_H
 
 #include <Time.h>
-#include <avr/wdt.h>
 
 namespace arduino {
   const float Vref = 5.0;  //TODO read from mega board
 
   String gLastErrorMsg;
   String gLastInfoMsg;
-
-  typedef unsigned char JsonFormat;
-  const JsonFormat JSON_FORMAT_INVALID = -1, JSON_FORMAT_COMPACT = 0, JSON_FORMAT_PRETTY = 1;
-
-  JsonFormat jsonFormat = JSON_FORMAT_PRETTY;
-
-  JsonFormat parseFormat( const char* pszFormat) {
-    if (!strcmp_P(pszFormat, PSTR("JSON_COMPACT"))) {
-      return JSON_FORMAT_COMPACT;
-    } else if (!strcmp_P(pszFormat, PSTR("JSON_PRETTY"))) {
-      return JSON_FORMAT_PRETTY;
-    } else {
-      return JSON_FORMAT_INVALID;
-    }
-  }
-
-  String formatAsString(JsonFormat fmt)
-  {
-    if ( fmt == JSON_FORMAT_COMPACT ) {
-      return "JSON_COMPACT";
-    } else if ( fmt == JSON_FORMAT_PRETTY ){
-      return "JSON_PRETTY";
-    } else {
-      String msg("INVALID:");
-      msg += (unsigned int) fmt;
-      return msg;
-    }
-  }
-
-  namespace watchdog {
-    const auto KeepAliveMs = WDTO_8S;
-    bool resetRequested = false;
-        
-    void enable() {
-      wdt_enable(KeepAliveMs);
-    }
-
-    void keepAlive() {
-      while( resetRequested ); // this will lock program and prevent wdt_reset which will cause reboot
-      wdt_reset();
-    }
-  }
-
+  
   long readVcc() {
     // Read 1.1V reference against AVcc
     // set the reference to Vcc and the measurement to the internal 1.1V reference
@@ -82,12 +39,6 @@ namespace arduino {
     return result; // Vcc in millivolts
   }
 
-
-  std::ostream &operator<<(std::ostream &os, const __FlashStringHelper *s) {
-    String str(s);
-    os << str.c_str();
-    return os;
-  }
 
 #define CMD_OK 0
 #define CMD_ERROR -1

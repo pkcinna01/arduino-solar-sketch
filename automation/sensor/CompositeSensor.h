@@ -37,7 +37,7 @@ namespace automation {
       return getValueFn(sensors);
     }
 
-    void printVerbose(int depth = 0) override;
+    void print(json::JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const override;
 
     friend std::ostream &operator<<(std::ostream &os, const CompositeSensor &s) {
       os << F("CompositeSensor{ strType: ") << s.name << F(", value: ") << s.getValue() << "}";

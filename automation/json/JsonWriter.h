@@ -1,36 +1,88 @@
-#ifndef JSONWRITER_H
-#define JSONWRITER_H
+#ifndef __AUTOMATION_JSON_WRITER__
+#define __AUTOMATION_JSON_WRITER__
 
-#include "Arduino.h"
+// Do not refactor with a JSON library.  This class allows Arduino Serial port JSON to share same format as external processes.
 
-// Utility to count bytes sent with Serial class
-class SerialByteCounter : public Print {
-  public:
-  unsigned long checksum;
-  virtual size_t write(uint8_t c) 
+#include "SerialByteCounter.h"
+#include "json.h"
+
+namespace automation {
+namespace json {
+
+#ifdef ARDUINO_APP
+  std::ostream &operator<<(std::ostream &os, const __FlashStringHelper *pFlashStringHelper)
   {
-    checksum += c;
-    return 1;
+    os << String(pFlashStringHelper).c_str();
+    return os;
+  }
+
+  std::ostream &operator<<(std::ostream &os, String &str)
+  {
+    os << str.c_str();
+    return os;
+  }
+
+  std::ostream &operator<<(std::ostream &os, uint8_t val)
+  {
+    unsigned int uiVal = val;
+    os << uiVal;
+    return os;
+  }
+#endif
+
+struct OutputStreamPrinter
+{
+  std::ostream *pOs;
+  OutputStreamPrinter(std::ostream *pOs = nullptr) : pOs(pOs) {}
+  template <typename T>
+  void print(T &val)
+  {
+    if (pOs)
+      (*pOs) << val;
+  }
+  template <typename T>
+  void println(T &val)
+  {
+    if (pOs)
+      (*pOs) << val << std::endl;
   }
 };
 
-SerialByteCounter byteCounter;
+struct StringStreamPrinter : public OutputStreamPrinter
+{
+  stringstream ss;
+  StringStreamPrinter() : OutputStreamPrinter(&ss) {}
+};
+
+// ArduinoSTL library has std::cout going to HardwareSerial
+struct StdoutStreamPrinter : OutputStreamPrinter
+{
+  StdoutStreamPrinter() : OutputStreamPrinter(&cout) {}
+};
+
+static StdoutStreamPrinter stdoutStreamPrinter;
+
+struct NullStreamPrinter : public OutputStreamPrinter
+{
+  NullStreamPrinter() : OutputStreamPrinter(&automation::cnull) {}
+};
+
+static NullStreamPrinter nullStreamPrinter;
 
 /**
  *  Print JSON to something with print() and println() methods such as Arduino Serial
  **/
-template<class T>
-class JsonWriter
+class JsonStreamWriter
 {
   protected:
+  SerialByteCounter byteCounter;
+  unsigned long byteCnt;
+  unsigned long checksum;
 
-  static unsigned long byteCnt;
-  static unsigned long checksum;
-
-  T& impl;
+  OutputStreamPrinter& impl;
   
   template<typename TPrintable>
-  static void updateState(TPrintable printable) 
+  void updateState(TPrintable printable) 
   {
     byteCounter.checksum = 0;
     byteCnt += byteCounter.print(printable);
@@ -40,7 +92,7 @@ class JsonWriter
   // All JsonWriter prints should end up here.  
   template<typename TPrintable>
   void statefulPrint(TPrintable printable) { 
-    JsonWriter<T>::updateState(printable);
+    updateState(printable);
     impl.print(printable);
   }
 
@@ -56,23 +108,22 @@ class JsonWriter
 
   public:
 
-  static void clearByteCount() { byteCnt = 0; }
-  static unsigned long getByteCount() { return byteCnt; }
-  static void clearChecksum() { checksum = 0; }
-  static unsigned long getChecksum() { return checksum; }
-  static bool isPretty() { return arduino::jsonFormat == arduino::JSON_FORMAT_PRETTY; }
+  void clearByteCount() { byteCnt = 0; }
+  unsigned long getByteCount() { return byteCnt; }
+  void clearChecksum() { checksum = 0; }
+  unsigned long getChecksum() { return checksum; }
 
   int depth;
   int beginStringObjByteCnt;
 
-  JsonWriter<T>(T& impl, int depth = 0) :
+  JsonStreamWriter(OutputStreamPrinter& impl, int depth = 0) :
     impl(impl),
     depth(depth)
   {
   }
 
-  JsonWriter& printPrefix() { 
-    if ( isPretty() ) {
+  JsonStreamWriter& printPrefix() { 
+    if ( json::isPretty() ) {
       for (int i = 0; i < depth; i++) {
         statefulPrint("  "); 
       }
@@ -81,7 +132,7 @@ class JsonWriter
   }
 
   template<typename TPrintable>
-  JsonWriter& print(TPrintable printable) 
+  JsonStreamWriter& print(TPrintable printable) 
   { 
     printPrefix(); 
     statefulPrint(printable); 
@@ -89,53 +140,53 @@ class JsonWriter
   } 
 
   template<typename TPrintable>
-  JsonWriter& println(TPrintable printable)
+  JsonStreamWriter& println(TPrintable printable)
   { 
     print(printable); 
-    if ( isPretty() ){
+    if ( json::isPretty() ){
       statefulPrintln(); 
     }
     return *this; 
   } 
 
-  JsonWriter& println()
+  JsonStreamWriter& println()
   {
-    if ( isPretty() ){
+    if ( json::isPretty() ){
       statefulPrintln(); 
     }
   }
 
   template<typename TPrintable>
-  JsonWriter& noPrefixPrint(TPrintable printable)
+  JsonStreamWriter& noPrefixPrint(TPrintable printable)
   { 
     statefulPrint(printable); 
     return *this; 
   } 
 
   template<typename TPrintable>
-  JsonWriter& noPrefixPrintln(TPrintable printable)
+  JsonStreamWriter& noPrefixPrintln(TPrintable printable)
   { 
     statefulPrint(printable); 
-    if ( isPretty() ){
+    if ( json::isPretty() ){
       statefulPrintln(); 
     }
     return *this; 
   }
 
-  JsonWriter& noPrefixPrintln()
+  JsonStreamWriter& noPrefixPrintln()
   { 
-    if ( isPretty() ){
+    if ( json::isPretty() ){
       statefulPrintln(); 
     }
     return *this; 
   } 
 
   // Track indentation for pretty print
-  JsonWriter& increaseDepth() { depth++; return *this; }
-  JsonWriter& decreaseDepth() { depth--; return *this; }
+  JsonStreamWriter& increaseDepth() { depth++; return *this; }
+  JsonStreamWriter& decreaseDepth() { depth--; return *this; }
 
   template<typename TKey>
-  JsonWriter& printKey(TKey k)
+  JsonStreamWriter& printKey(TKey k)
   { 
     printPrefix(); 
     statefulPrint("\""); 
@@ -145,7 +196,7 @@ class JsonWriter
   }
 
   template<typename TKey, typename TVal>
-  JsonWriter& printStringObj(TKey k, TVal v, const char* suffix = "" )
+  JsonStreamWriter& printStringObj(TKey k, TVal v, const char* suffix = "" )
   {     
     beginStringObj(k);
     appendStringVal(v);
@@ -154,7 +205,7 @@ class JsonWriter
   }
 
   template<typename TKey>
-  JsonWriter& beginStringObj(TKey k)
+  JsonStreamWriter& beginStringObj(TKey k)
   {     
     printKey(k);
     statefulPrint("\""); 
@@ -163,20 +214,20 @@ class JsonWriter
   }
 
   template<typename TVal>
-  JsonWriter operator+(TVal v) 
+  JsonStreamWriter operator+(TVal v) 
   {
     return appendStringVal(v);
   }
 
   //TODO - escape double quotes if a string
   template<typename TVal>
-  JsonWriter& appendStringVal(TVal v)
+  JsonStreamWriter& appendStringVal(TVal v)
   { 
     statefulPrint(v); 
     return *this;
   }
   
-  JsonWriter& endStringObj(const char* suffix = "")
+  JsonStreamWriter& endStringObj(const char* suffix = "")
   { 
     statefulPrint("\"");
     statefulPrint(suffix);
@@ -194,7 +245,7 @@ class JsonWriter
   }
 
   template<typename TKey, typename TVal>
-  JsonWriter& printlnStringObj(TKey k, TVal v, const char* suffix = "" )
+  JsonStreamWriter& printlnStringObj(TKey k, TVal v, const char* suffix = "" )
   {
     printStringObj(k,v,suffix);
     println();
@@ -202,7 +253,7 @@ class JsonWriter
   }
 
   template<typename TKey, typename TVal>
-  JsonWriter& printNumberObj(TKey k, TVal v, const char* suffix = "" )
+  JsonStreamWriter& printNumberObj(TKey k, TVal v, const char* suffix = "" )
   {     
     printKey(k);
     statefulPrint(v); 
@@ -211,7 +262,7 @@ class JsonWriter
   }
 
   template<typename TKey, typename TVal>
-  JsonWriter& printlnNumberObj(TKey k, TVal v, const char* suffix = "" )
+  JsonStreamWriter& printlnNumberObj(TKey k, TVal v, const char* suffix = "" )
   {     
     printNumberObj(k,v,suffix);
     println();
@@ -219,7 +270,7 @@ class JsonWriter
   }
 
   template<typename TKey>
-  JsonWriter& printBoolObj(TKey k, bool v, const char* suffix = "" )
+  JsonStreamWriter& printBoolObj(TKey k, bool v, const char* suffix = "" )
   {     
     printKey(k);
     statefulPrint(v?"true":"false"); 
@@ -228,7 +279,7 @@ class JsonWriter
   }
 
   template<typename TKey>
-  JsonWriter& printlnBoolObj(TKey k, bool v, const char* suffix = "" )
+  JsonStreamWriter& printlnBoolObj(TKey k, bool v, const char* suffix = "" )
   {
     printBoolObj(k,v,suffix);
     println();
@@ -236,25 +287,7 @@ class JsonWriter
   }
 
   template<typename TKey, typename TArray> 
-  JsonWriter& printArrayObj(TKey k, TArray arr, const char* suffix = "" ) 
-  {
-    printKey(k);
-    noPrefixPrint("[");
-
-    for( int i = 0; arr[i] != NULL; i++ )
-    {
-      noPrefixPrintln( i != 0 ? "," : "" );
-      arr[i]->print(depth+1);
-      arduino::watchdog::keepAlive();
-    };
-    noPrefixPrintln();
-    print("]");
-    noPrefixPrint(suffix);
-    return *this;
-  }
-
-  template<typename TKey, typename TArray> 
-  JsonWriter& printlnArrayObj(TKey k, TArray arr, const char* suffix = "" ) 
+  JsonStreamWriter& printlnArrayObj(TKey k, TArray arr, const char* suffix = "" ) 
   {
     printArrayObj(k,arr,suffix);
     println();
@@ -262,7 +295,7 @@ class JsonWriter
   }
 
   template<typename TKey, typename TIterator>
-  JsonWriter& printIteratorObj(TKey k, TIterator itr, TIterator endItr, 
+  JsonStreamWriter& printIteratorObj(TKey k, TIterator itr, TIterator endItr, 
       const char* suffix = "", bool bVerbose = false ) {
     printKey(k);
     noPrefixPrint("[");
@@ -276,12 +309,8 @@ class JsonWriter
       } else {
         noPrefixPrintln(",");
       }
-      if ( bVerbose ) {
-        (*itr)->printVerbose(depth+1);
-      } else {
-        (*itr)->print(depth+1);
-      }
-      arduino::watchdog::keepAlive();
+      (*itr)->print(*this,bVerbose);
+      automation::threadKeepAliveReset();
       itr++;
     };
     noPrefixPrintln();
@@ -291,7 +320,7 @@ class JsonWriter
   }
 
   template<typename TKey, typename TIterator>
-  JsonWriter& printlnIteratorObj(TKey k, TIterator itr, TIterator endItr, 
+  JsonStreamWriter& printlnIteratorObj(TKey k, TIterator itr, TIterator endItr, 
     const char* suffix = "", bool bVerbose = false ) {
     printIteratorObj(k,itr,endItr,suffix,bVerbose);
     println();
@@ -299,13 +328,13 @@ class JsonWriter
   }
 
   template<typename TKey, typename TArray>
-  JsonWriter& printVectorObj(TKey k, TArray arr, const char* suffix = "", bool bVerbose = false )
+  JsonStreamWriter& printVectorObj(TKey k, TArray arr, const char* suffix = "", bool bVerbose = false )
   {
     return printIteratorObj(k,arr.begin(),arr.end(),suffix,bVerbose);
   }
 
   template<typename TKey, typename TArray>
-  JsonWriter& printlnVectorObj(TKey k, TArray arr, const char* suffix = "", bool bVerbose = false )
+  JsonStreamWriter& printlnVectorObj(TKey k, TArray arr, const char* suffix = "", bool bVerbose = false )
   {
     printVectorObj(k,arr,suffix,bVerbose);
     println();
@@ -314,14 +343,14 @@ class JsonWriter
 
   // Allow printing directly to Serial or other writer without counting bytes or updating checksum
   template<typename TPrintable>
-  JsonWriter& implPrint(TPrintable printable)
+  JsonStreamWriter& implPrint(TPrintable printable)
   { 
     impl.print(printable); 
     return *this; 
   } 
 
   template<typename TPrintable>
-  JsonWriter& implPrintln(TPrintable printable)
+  JsonStreamWriter& implPrintln(TPrintable printable)
   { 
     impl.println(printable); 
     return *this; 
@@ -329,47 +358,11 @@ class JsonWriter
 
 };
 
-
-struct NullSerial {
-  template<typename T>
-  void print(T& val) {
-  }
-};
-
-struct StringStreamSerial {
-  stringstream ss;
-  template<typename T>
-  void print(T& val) {
-    ss << val;
-  }
-};
-
-template<typename T>
-class GenericWriter : public JsonWriter<T>
+class JsonSerialWriter : public JsonStreamWriter
 {
 public:
-  T serial;
-  GenericWriter(int depth=0) :
-      JsonWriter<T>(serial,depth)
-  {
-  }
+  JsonSerialWriter(int depth = 0) : JsonStreamWriter(stdoutStreamPrinter, depth) {}
 };
 
-typedef GenericWriter<NullSerial> NullWriter;
-typedef GenericWriter<StringStreamSerial> StringStreamWriter;
-
-class JsonSerialWriter : public JsonWriter<HardwareSerial>
-{
-  public:
-  JsonSerialWriter(int depth=0) :
-    JsonWriter(Serial,depth)
-  {
-  }
-};
-
-template<class C>
-unsigned long JsonWriter<C>::checksum = 0;
-template<class C>
-unsigned long JsonWriter<C>::byteCnt = 0;
-
+}}
 #endif

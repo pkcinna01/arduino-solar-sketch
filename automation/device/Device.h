@@ -1,11 +1,13 @@
 #ifndef AUTOMATION_DEVICE_H
 #define AUTOMATION_DEVICE_H
 
+#include "../json/JsonWriter.h"
+#include "../constraint/Constraint.h"
+#include "../constraint/BooleanConstraint.h"
+
 #include <vector>
 #include <string>
 #include <memory>
-#include "../constraint/Constraint.h"
-#include "../constraint/BooleanConstraint.h"
 
 using namespace std;
 
@@ -13,7 +15,7 @@ namespace automation {
 
   class Capability;
 
-  class Device : public AttributeContainer {
+  class Device : public NamedAttributeContainer {
   public:
 
     Constraint *pConstraint = nullptr;
@@ -21,7 +23,7 @@ namespace automation {
     bool bError;
 
     Device(const string &name) :
-        AttributeContainer(name), pConstraint(nullptr), bError(false) {
+        NamedAttributeContainer(name), pConstraint(nullptr), bError(false) {
     }
 
     RTTI_GET_TYPE_DECL;
@@ -30,17 +32,9 @@ namespace automation {
 
     virtual void constraintResultChanged(bool bConstraintResult) = 0;
 
-    virtual void print(int depth, bool bVerbose);
+    virtual void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const override;
 
-    virtual void print(int depth = 0) { 
-      print(depth,false); 
-    }
-    
-    virtual void printVerbose(int depth = 0 ) { 
-      print(depth,true); 
-    }
-
-    virtual void printVerboseExtra(int depth = 1);
+    virtual void printVerboseExtra(json::JsonStreamWriter& w, bool bIncludePrefix=true) const {};
 
     virtual Constraint* getConstraint() {
       return pConstraint;

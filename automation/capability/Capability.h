@@ -2,10 +2,9 @@
 #define AUTOMATION_CAPABILITY_H
 
 #include "../device/Device.h"
+#include "../AttributeContainer.h"
 
 #include <string>
-#include <iostream>
-#include <sstream>
 #include <algorithm>
 #include <functional>
 
@@ -15,7 +14,7 @@ namespace automation {
 
   // Try to handle any value type but lean on double for now
   //
-  class Capability {
+  class Capability : public AttributeContainer {
 
   public:
 
@@ -43,12 +42,6 @@ namespace automation {
 
     virtual const string getOwnerName() const {
         return pDevice ? pDevice->name : "";
-    }
-
-    virtual const string asString() const {
-      ostringstream ss;
-      ss << getValue() << endl;
-      return ss.str();
     }
 
     virtual void setValue(bool bVal) {
@@ -85,7 +78,7 @@ namespace automation {
       listeners.erase(std::remove(listeners.begin(), listeners.end(), pListener), listeners.end());
     }
 
-    virtual const string getTitle() const {
+    virtual string getTitle() const {
       string str(getType());
       str += " '";
       str += getOwnerName();
@@ -97,11 +90,10 @@ namespace automation {
       return pDevice ? pDevice->name : "";
     }
 
-    virtual void print(int depth = 0);
-    virtual void printVerbose(int depth = 0 ) { print(depth); }
+    virtual void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const;
 
     friend std::ostream &operator<<(std::ostream &os, const Capability &c) {
-      os << c.getTitle() << " = " << c.asString();
+      os << c.getTitle() << " = " << text::asString(c.getValue());
       return os;
     }
 

@@ -37,17 +37,19 @@ namespace arduino {
       }
     }
 
-    void printVerbose(int depth = 0) override {
-      JsonSerialWriter w(depth);
-      w.println("{");
+    void print(JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const override {
+      if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
+ 
       w.increaseDepth();
       w.printlnStringObj(F("name"), name.c_str(), ",");
-      w.printKey(F("voltage"));
-      pVoltageSensor->printVerbose(depth + 1);
-      w.noPrefixPrintln(",");
-      w.printKey(F("current"));
-      pCurrentSensor->printVerbose(depth + 1);
-      w.noPrefixPrintln(",");
+      if ( bVerbose ) {
+        w.printKey(F("voltage"));
+        pVoltageSensor->print(w,bVerbose,false);
+        w.noPrefixPrintln(",");
+        w.printKey(F("current"));
+        pCurrentSensor->print(w,bVerbose,false);
+        w.noPrefixPrintln(",");
+      }
       w.printlnNumberObj(F("value"), getValue());
       w.decreaseDepth();
       w.print("}");

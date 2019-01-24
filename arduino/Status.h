@@ -30,14 +30,19 @@ struct Status {
     code = 0;
   }
 
-  void print(int depth = 0) {
-    JsonSerialWriter w(depth);
-    w.println("{");
+  void noPrefixPrint(JsonStreamWriter& w, bool bVerbose=false) { 
+    print(w,true,false);
+  }
+
+  void print(JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) {
+    
+    if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
+
     w.increaseDepth();
     w.printlnNumberObj(F("code"),code,",");
     w.printlnStringObj(F("msg"),msg);
     w.decreaseDepth();
-    w.println("}");
+    w.print("}");
    }
 
 };

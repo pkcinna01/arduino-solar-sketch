@@ -2,6 +2,7 @@
 #define SOLAR_IFTTT_VALUECONSTRAINT_H
 
 #include "Constraint.h"
+#include "../text.h"
 
 #include <string>
 
@@ -63,9 +64,9 @@ namespace automation {
     string getTitle() const override {
       string rtn(this->valueSource.name);
       rtn += " Range(";
-      rtn += asString(minVal);
+      rtn += text::asString(minVal);
       rtn += ",";
-      rtn += asString(maxVal);
+      rtn += text::asString(maxVal);
       rtn += ")";
       return rtn;
     }
@@ -106,7 +107,7 @@ namespace automation {
       rtn += " ";
       rtn += this->getType();
       rtn += "(";
-      rtn += asString(pThreshold->getValue());
+      rtn += text::asString(pThreshold->getValue());
       rtn += ")";
       return rtn;
     }

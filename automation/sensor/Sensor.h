@@ -2,13 +2,13 @@
 #define AUTOMATION_SENSOR_H
 
 #include "../Automation.h"
+#include "../AttributeContainer.h"
 
 #include <string>
-#include <functional>
-#include <iostream>
 #include <vector>
 
 namespace automation {
+
 
   template<typename ValueT>
   class ValueHolder {
@@ -16,12 +16,12 @@ namespace automation {
     virtual ValueT getValue() const = 0;
   };
 
-  class Sensor : public ValueHolder<float>, public AttributeContainer {
+  class Sensor : public ValueHolder<float>, public NamedAttributeContainer {
   public:    
     RTTI_GET_TYPE_DECL;
     //GET_ID_DECL;
 
-    Sensor(const std::string& name) : AttributeContainer(name)
+    Sensor(const std::string& name) : NamedAttributeContainer(name)
     {
     }
 
@@ -30,16 +30,10 @@ namespace automation {
       bInitialized = true;
     }
   
-    virtual void print(int depth = 0);
-
-    virtual void printVerbose(int depth = 0 );
-
-    virtual const string& getTitle() const {
-      return name;
-    }
+    virtual void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const override;
 
     template<typename ObjectPtr,typename MethodPtr>
-    static float sample(ObjectPtr obj, MethodPtr method, unsigned int cnt = 5, unsigned int intervalMs = 50)
+    static float sample(ObjectPtr pObj, MethodPtr pMethod, unsigned int cnt = 5, unsigned int intervalMs = 50)
     {
       float sum = 0;
       if ( cnt == 0 ) {
@@ -47,7 +41,7 @@ namespace automation {
       }
       for (int i = 0; i < cnt; i++)
       {
-        sum += (obj->*method)();
+        sum += (pObj->*pMethod)();
         if ( cnt > 1 )
         {
           automation::sleep(intervalMs);
@@ -64,7 +58,7 @@ namespace automation {
     static float delta(const vector<Sensor*>& sensors);
 
     friend std::ostream &operator<<(std::ostream &os, const Sensor &s) {
-      os << F("\"Sensor\": { name: \"") << s.name << F("\", value: ") << s.getValue() << " }";
+      os << F("\"") << s.name << F("\": ") << s.getValue();
       return os;
     }
 

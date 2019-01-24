@@ -19,22 +19,13 @@ namespace automation {
     delay(intervalMs);
   }
 
-  class NullStream : public std::ostream {
-    class NullBuffer : public std::streambuf {
-    public:
-      int overflow( int c ) { return c; }
-    } m_nb;
-    public:
-    NullStream() : std::ostream( &m_nb ) {}
-  };
-
   std::ostream& getLogBufferImpl() {
 
     //std::cout.setstate(std::ios_base::badbit);
     //return std::cout;
 
-    static NullStream nullStream;
-    return nullStream;
+    
+    return automation::cnull;
   }
 
   void clearLogBuffer() {
@@ -48,5 +39,7 @@ namespace automation {
   bool isTimeValid() {
     return timeStatus() == timeSet;
   }
+
+  void threadKeepAliveReset() { watchdog::keepAlive(); }
 }
 

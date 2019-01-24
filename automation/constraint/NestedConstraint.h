@@ -14,7 +14,8 @@ namespace automation {
     virtual bool outerCheckValue(bool bInnerResult) = 0;
 
     bool checkValue() override {
-      return outerCheckValue(pConstraint->checkValue());
+      return outerCheckValue(pConstraint->test()); // need to honor delays of inner constraint so cannot call checkValue directly
+      //return outerCheckValue(pConstraint->checkValue());
     }
 
     string getTitle() const override {

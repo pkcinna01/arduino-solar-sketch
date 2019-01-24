@@ -3,7 +3,6 @@
 
 #include "Constraint.h"
 #include "BooleanConstraint.h"
-#include "NestedConstraint.h"
 #include <ctime>
 #include <vector>
 #include <sstream>
