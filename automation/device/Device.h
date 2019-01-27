@@ -1,9 +1,9 @@
 #ifndef AUTOMATION_DEVICE_H
 #define AUTOMATION_DEVICE_H
 
-#include "../json/JsonWriter.h"
+#include "../json/JsonStreamWriter.h"
 #include "../constraint/Constraint.h"
-#include "../constraint/BooleanConstraint.h"
+#include "../AttributeContainer.h"
 
 #include <vector>
 #include <string>
@@ -15,7 +15,7 @@ namespace automation {
 
   class Capability;
 
-  class Device : public NamedAttributeContainer {
+  class Device : public NamedContainer {
   public:
 
     Constraint *pConstraint = nullptr;
@@ -23,7 +23,7 @@ namespace automation {
     bool bError;
 
     Device(const string &name) :
-        NamedAttributeContainer(name), pConstraint(nullptr), bError(false) {
+        NamedContainer(name), pConstraint(nullptr), bError(false) {
     }
 
     RTTI_GET_TYPE_DECL;
@@ -34,7 +34,7 @@ namespace automation {
 
     virtual void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const override;
 
-    virtual void printVerboseExtra(json::JsonStreamWriter& w, bool bIncludePrefix=true) const {};
+    virtual void printVerboseExtra(json::JsonStreamWriter& w) const { w.noPrefixPrintln(""); };
 
     virtual Constraint* getConstraint() {
       return pConstraint;
@@ -58,11 +58,11 @@ namespace automation {
   };
 
 
-  class Devices : public AutomationVector<Device*> {
+  class Devices : public NamedItemVector<Device*> {
   public:
     Devices(){}
-    Devices( vector<Device*>& devices ) : AutomationVector<Device*>(devices) {}
-    Devices( vector<Device*> devices ) : AutomationVector<Device*>(devices) {}
+    Devices( vector<Device*>& devices ) : NamedItemVector<Device*>(devices) {}
+    Devices( vector<Device*> devices ) : NamedItemVector<Device*>(devices) {}
   };
 
 

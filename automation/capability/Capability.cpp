@@ -1,7 +1,7 @@
 
 
 #include "Capability.h"
-#include "../json/JsonWriter.h"
+#include "../json/JsonStreamWriter.h"
 
 namespace automation {
 

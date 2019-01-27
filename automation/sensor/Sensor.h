@@ -16,12 +16,12 @@ namespace automation {
     virtual ValueT getValue() const = 0;
   };
 
-  class Sensor : public ValueHolder<float>, public NamedAttributeContainer {
+  class Sensor : public ValueHolder<float>, public NamedContainer {
   public:    
     RTTI_GET_TYPE_DECL;
     //GET_ID_DECL;
 
-    Sensor(const std::string& name) : NamedAttributeContainer(name)
+    Sensor(const std::string& name) : NamedContainer(name)
     {
     }
 
@@ -110,11 +110,11 @@ namespace automation {
 
   };
 
-  class Sensors : public AutomationVector<Sensor*> {
+  class Sensors : public NamedItemVector<Sensor*> {
   public:
     Sensors(){}
-    Sensors( vector<Sensor*>& sensors ) : AutomationVector<Sensor*>(sensors) {}
-    Sensors( vector<Sensor*> sensors ) : AutomationVector<Sensor*>(sensors) {}
+    Sensors( vector<Sensor*>& sensors ) : NamedItemVector<Sensor*>(sensors) {}
+    Sensors( vector<Sensor*> sensors ) : NamedItemVector<Sensor*>(sensors) {}
   };
 
 }

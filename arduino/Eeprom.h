@@ -2,6 +2,9 @@
 #define ARDUINO_SOLAR_SKETCH_EEPROM_H
 
 #include "Arduino.h"
+#include "../automation/algorithm.h"
+
+#include <map>
 
 using namespace automation::json;
 
@@ -16,8 +19,10 @@ namespace arduino {
 
     const size_t VERSION_OFFSET = 0;
     const size_t FORMAT_OFFSET = VERSION_SIZE;
-    const size_t CMD_COUNT_OFFSET = VERSION_SIZE + sizeof(JsonFormat);
-    const size_t CMD_ARR_OFFSET = CMD_COUNT_OFFSET + sizeof(size_t);
+    const size_t SERIAL_SPEED_OFFSET = VERSION_SIZE + sizeof(JsonFormat);
+    const size_t SERIAL_CONFIG_OFFSET = SERIAL_SPEED_OFFSET + sizeof(unsigned long);
+    const size_t CMD_COUNT_OFFSET = SERIAL_CONFIG_OFFSET + sizeof(unsigned int);
+    const size_t CMD_ARR_OFFSET = CMD_COUNT_OFFSET + sizeof(unsigned int);
 
     JsonFormat getJsonFormat() {
       JsonFormat format;
@@ -44,14 +49,36 @@ namespace arduino {
       return *this;
     }
 
-    size_t getCommandCount() {
-      size_t cmdCnt;
+    unsigned int getCommandCount() {
+      unsigned int cmdCnt;
       EEPROM.get(CMD_COUNT_OFFSET, cmdCnt);
       return cmdCnt;
     }
 
-    int setCommandCount(size_t cmdCnt) {
+    int setCommandCount(unsigned int cmdCnt) {
       EEPROM.put( CMD_COUNT_OFFSET, cmdCnt);
+      return CMD_OK;
+    }
+    
+    unsigned long getSerialSpeed() {
+      unsigned long rtnVal;
+      EEPROM.get(SERIAL_SPEED_OFFSET, rtnVal);
+      return rtnVal;
+    }
+
+    int setSerialSpeed(unsigned long v) {
+      EEPROM.put( SERIAL_SPEED_OFFSET, v);
+      return CMD_OK;
+    }
+
+    unsigned int getSerialConfig() {
+      unsigned int rtnVal;
+      EEPROM.get(SERIAL_CONFIG_OFFSET, rtnVal);
+      return rtnVal;
+    }
+
+    int setSerialConfig(unsigned int v) {
+      EEPROM.put( SERIAL_CONFIG_OFFSET, v);
       return CMD_OK;
     }
 
@@ -172,18 +199,14 @@ namespace arduino {
       }
     }
 
-//TBD - who calls this?
-    void print(int depth=0) {
-      JsonSerialWriter w(depth);
-      w.print("");
-      noPrefixPrint(w);
-    }
     
     void noPrefixPrint(JsonStreamWriter& w) {
       w.noPrefixPrintln("{");
       w.increaseDepth();
       String str;
       w.printlnStringObj(F("version"), getVersion(str), ",");
+      w.printlnNumberObj(F("serialSpeed"), getSerialSpeed(), ",");
+      w.printlnStringObj(F("serialConfig"), Eeprom::serialConfigAsString(getSerialConfig()), ",");
       w.printlnStringObj(F("jsonFormat"), formatAsString(getJsonFormat()).c_str(), ",");
       int cmdCnt = getCommandCount();
       w.printlnNumberObj(F("commandCount"), cmdCnt, ",");
@@ -192,13 +215,22 @@ namespace arduino {
       w.increaseDepth();
       for( int i = 0; i < cmdCnt; i++ ) {
         getCommandAt(i,str);
-        w.printStringObj(F("command"),str);
-        w.noPrefixPrintln( (i+1 < cmdCnt) ? "," : "");
+        w.printlnStringVal(str.c_str(),(i+1 < cmdCnt) ? "," : "");
       }
       w.decreaseDepth();
       w.println("]");
       w.decreaseDepth();
       w.print("}");
+    }
+
+    static string serialConfigAsString( unsigned int serialConfig ) {
+      std::map<unsigned int,string> validConfigs = { {SERIAL_8N1,"8N1"}, {SERIAL_8E1,"8E1"}, {SERIAL_8O1,"8O1"} };
+      auto it = validConfigs.find(serialConfig);
+      if ( it != validConfigs.end() ) {
+        return it->second;
+      } else {
+        return string("INVALID CONFIG:" ) + text::asString(serialConfig);
+      }
     }
 
   protected:

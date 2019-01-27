@@ -3,7 +3,7 @@
 
 
 #include "Arduino.h"
-#include "../automation/json/JsonWriter.h"
+#include "../automation/json/JsonStreamWriter.h"
 #include "../automation/json/json.h"
 #include "Eeprom.h"
 
@@ -11,6 +11,7 @@
 #include "watchdog.h"
 
 #include <vector>
+#include <map>
 #include <string>
 
 using namespace std;
@@ -172,8 +173,29 @@ namespace arduino {
             writer + F("Expected JSON_COMPACT|JSON_PRETTY but found: ") + pszFormat;
             respCode = INVALID_CMD_ARGUMENT;
           }
+        } else if ( !strcasecmp_P(pszField, PSTR("SERIAL_SPEED"))) {
+          const char *pszSpeed = strtok(NULL, ", \r\n");
+          unsigned long speed = atol(pszSpeed);
+          if ( automation::algorithm::indexOf(speed,{{9600, 14400, 19200, 28800, 38400, 57600, 115200}}) > 0 ) {
+            eeprom.setSerialSpeed(speed);
+            gLastInfoMsg = F("Serial communication changes require a RESET.");
+          } else {
+            writer + F("Unsupported serial speed: ") + pszSpeed;
+            respCode = INVALID_CMD_ARGUMENT;
+          }
+        } else if ( !strcasecmp_P(pszField, PSTR("SERIAL_CONFIG"))) {
+          const char *pszConfig = strtok(NULL, ", \r\n");
+          std::map<string,unsigned int> validConfigs = { {"8N1",SERIAL_8N1}, {"8E1",SERIAL_8E1}, {"8O1",SERIAL_8O1} };
+          auto configIt = validConfigs.find(pszConfig);
+          if ( configIt != validConfigs.end() ) {
+            eeprom.setSerialConfig(configIt->second);
+            gLastInfoMsg = F("Serial communication changes require a RESET.");
+          } else {
+            writer + F("Expected 8N1|8E1|8O1 but found: ") + pszConfig;
+            respCode = INVALID_CMD_ARGUMENT;
+          }
         } else {
-          writer + F("Expected SET field {OUTPUT_FORMAT} but found: ") + pszField;
+          writer + F("Expected SET field {OUTPUT_FORMAT|SERIAL_SPEED|SERIAL_CONFIG} but found: ") + pszField;
           respCode = INVALID_CMD_ARGUMENT;
         }
       } else if (!strcasecmp_P(pszAction, PSTR("ADD"))) {
@@ -245,6 +267,7 @@ namespace arduino {
       return respCode;
     }
 
+
     int processGetCommand(bool bVerbose) {
       int respCode = 0;
       const char *pszArg = strtok(NULL, ", ");
@@ -256,21 +279,19 @@ namespace arduino {
       writer.println("{").increaseDepth();
       do {
         if (!strcasecmp_P(pszArg, PSTR("ENV"))) {
-          writer.printKey("env");
+          writer.printKey(F("env"));
           writer.noPrefixPrintln("{");
           writer.increaseDepth();
           writer.printlnStringObj(F("release"), VERSION, ",")
               .printlnNumberObj(F("buildNumber"), BUILD_NUMBER, ",")
               .printlnStringObj(F("buildDate"), BUILD_DATE, ",")
-              .printlnStringObj(F("Vcc"), readVcc(), ",")
-              .beginStringObj("time");
+              .printlnStringObj(F("Vcc"), readVcc(), ",");
+          writer.beginStringObj(F("time"));
           time_t t = now();
           writer + year(t) + "-" + month(t) + "-" + day(t) + " " + hour(t) + ":" + minute(t) + ":" + second(t);
           writer.endStringObj();
           writer.noPrefixPrintln(",");
           writer.printlnStringObj("timeSet", timeStatus() == timeSet ? "YES" : "NO");
-          //writer.printKey(F("eeprom"));
-          //eeprom.print(1);
           writer.decreaseDepth();
           writer.println("},");
         } else if (!strcasecmp_P(pszArg, PSTR("SETUP")) || !strcasecmp_P(pszArg, PSTR("EEPROM"))) {
@@ -279,6 +300,32 @@ namespace arduino {
           writer.noPrefixPrintln(",");
         } else if (!strcasecmp_P(pszArg, PSTR("OUTPUT_FORMAT"))) {
           writer.printlnStringObj(F("outputFormat"), formatAsString(jsonFormat).c_str(), ",");
+        } else if (!strcasecmp_P(pszArg, PSTR("SENSOR")) || !strcasecmp_P(pszArg, PSTR("DEVICE"))) {
+          const char* pszId = strtok(NULL, ",\r\n");
+          if ( !pszId ) {
+              beginResp();
+              writer + F("ID required for GET of single ") + pszArg + ".";
+              respCode = INVALID_CMD_ARGUMENT;
+          } else {
+            long id = atol(pszId);
+            string automationType(pszArg);
+            std::transform(automationType.begin(), automationType.end(), automationType.begin(), ::tolower);
+            vector<NamedContainer*> singletonVec;
+            if( !strcasecmp_P(pszArg, PSTR("SENSOR")) ) {
+              auto sv = sensors.findById(id);
+              singletonVec.insert(singletonVec.end(), sv.begin(), sv.end());
+            } else {
+              auto dv = devices.findById(id);
+              singletonVec.insert(singletonVec.end(), dv.begin(), dv.end());
+            }
+            if ( singletonVec.size() == 1 ) {
+              writer.printlnVectorObj( automationType.c_str(), singletonVec, ",",bVerbose);
+            } else {
+              beginResp();
+              writer + F("Expected one ") + pszArg + F(" for ID '") + pszId + F("' but found ") + singletonVec.size();
+              respCode = NO_NAME_MATCHES;
+            }
+          }
         } else if (!strcasecmp_P(pszArg, PSTR("SENSORS"))) {
           writer.printlnVectorObj(F("sensors"), sensors, ",",bVerbose);
         } else if (!strcasecmp_P(pszArg, PSTR("DEVICES"))) {
@@ -286,7 +333,7 @@ namespace arduino {
         } else if (!strcasecmp_P(pszArg, PSTR("TIME"))) {
           time_t t = now();
           writer.printKey("time");
-          writer.println("{");
+          writer.noPrefixPrintln("{");
           writer.increaseDepth();
           writer.printlnNumberObj("year", year(t), ",");
           writer.printlnNumberObj("month", month(t), ",");
@@ -294,7 +341,7 @@ namespace arduino {
           writer.printlnNumberObj("hour", hour(t), ",");
           writer.printlnNumberObj("minute", minute(t), ",");
           writer.printlnNumberObj("second", second(t), ",");
-          writer.printlnStringObj("timeSet", timeStatus() == timeSet ? "YES" : "NO", ",");
+          writer.printlnStringObj("timeSet", timeStatus() == timeSet ? "YES" : "NO");
           writer.decreaseDepth();
           writer.println("},");
         } else {
@@ -321,14 +368,14 @@ namespace arduino {
       writer.println("{").increaseDepth();
 
       if (!strcasecmp_P(pszArg, PSTR("SENSORS"))) {
-        const char* pszCommaDelimitedNames = strtok(NULL,"\r\n");
+        const char* pszNamePattern = strtok(NULL,"\r\n");
         Sensors filteredSensors;
-        sensors.filterByNames(pszCommaDelimitedNames,filteredSensors,bInclude);
+        sensors.findByNameLike(pszNamePattern,filteredSensors,bInclude);
         writer.printlnVectorObj(F("sensors"), filteredSensors, ",",bVerbose);
       } else if (!strcasecmp_P(pszArg, PSTR("DEVICES"))) {
-        const char* pszCommaDelimitedNames = strtok(NULL,"\r\n");
+        const char* pszNamePattern = strtok(NULL,"\r\n");
         Devices filteredDevices;
-        devices.filterByNames(pszCommaDelimitedNames,filteredDevices,bInclude);
+        devices.findByNameLike(pszNamePattern,filteredDevices,bInclude);
         writer.printlnVectorObj(F("devices"), filteredDevices, ",",bVerbose);
       } else {
         beginResp();
@@ -390,16 +437,16 @@ namespace arduino {
             writer + i + ",";
           }
         }
-      } else if (!strcasecmp_P(pszArg, PSTR("DEVICE")) || !strcasecmp_P(pszArg, PSTR("SENSOR")) ) {
+      } else if (!strcasecmp_P(pszArg, PSTR("DEVICES")) || !strcasecmp_P(pszArg, PSTR("SENSORS")) ) {
         const char *pszName = strtok(NULL, ",\r\n");
         const char *pszKey = strtok(NULL, ", \r\n");  // ex: "CAPABILITY/TOGGLE","MODE","NAME",etc...
         const char *pszVal = strtok(NULL, ", \r\n");
         stringstream ss;
         bool bUpdated = false;
         int filteredCnt = 0;
-        if ( !strcasecmp_P(pszArg, PSTR("DEVICE")) ) {
+        if ( !strcasecmp_P(pszArg, PSTR("DEVICES")) ) {
           Devices filteredDevices;
-          devices.filterByNames(pszName,filteredDevices);
+          devices.findByNameLike(pszName,filteredDevices);
           filteredCnt = filteredDevices.size();
           for (Device *pDevice : filteredDevices) {
             if ( pDevice->setAttribute(pszKey,pszVal,&ss) ) {
@@ -408,7 +455,7 @@ namespace arduino {
           }
         } else {
           Sensors filteredSensors;
-          sensors.filterByNames(pszName,filteredSensors);
+          sensors.findByNameLike(pszName,filteredSensors);
           filteredCnt = filteredSensors.size();
           for (Sensor *pSensor : filteredSensors) {
             if ( pSensor->setAttribute(pszKey,pszVal,&ss) ) {
@@ -420,6 +467,41 @@ namespace arduino {
           writer + ss.str().c_str();
         } else if (filteredCnt==0) {
           writer + F("No matches for ") + pszArg + F(" with name matching '") + pszName + F("'");
+          respCode = NO_NAME_MATCHES;
+        } else {
+          writer + F("No ") + pszArg + F(" with key matching '") + pszKey + F("'");
+          respCode = NO_NAME_MATCHES;
+        }
+      } else if (!strcasecmp_P(pszArg, PSTR("DEVICE")) || !strcasecmp_P(pszArg, PSTR("SENSOR")) ) {
+        const char *pszId = strtok(NULL, ",\r\n");
+        const char *pszKey = strtok(NULL, ", \r\n");  // ex: "CAPABILITY/TOGGLE","MODE","NAME",etc...
+        const char *pszVal = strtok(NULL, ", \r\n");
+        stringstream ss;
+        bool bUpdated = false;
+        int filteredCnt = 0;
+        if ( !strcasecmp_P(pszArg, PSTR("DEVICE")) ) {
+          Devices filteredDevices;
+          devices.findById(atoi(pszId),filteredDevices);
+          filteredCnt = filteredDevices.size();
+          for (Device *pDevice : filteredDevices) {
+            if ( pDevice->setAttribute(pszKey,pszVal,&ss) ) {
+              bUpdated = true;
+            }
+          }
+        } else {
+          Sensors filteredSensors;
+          sensors.findById(atoi(pszId),filteredSensors);
+          filteredCnt = filteredSensors.size();
+          for (Sensor *pSensor : filteredSensors) {
+            if ( pSensor->setAttribute(pszKey,pszVal,&ss) ) {
+              bUpdated = true;
+            }
+          }
+        }
+        if (bUpdated) {
+          writer + ss.str().c_str();
+        } else if (filteredCnt==0) {
+          writer + F("No matches for ") + pszArg + F(" with ID = '") + pszId + F("'");
           respCode = NO_NAME_MATCHES;
         } else {
           writer + F("No ") + pszArg + F(" with key matching '") + pszKey + F("'");

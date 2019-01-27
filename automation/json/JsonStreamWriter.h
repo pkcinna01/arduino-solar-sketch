@@ -4,70 +4,12 @@
 // Do not refactor with a JSON library.  This class allows Arduino Serial port JSON to share same format as external processes.
 
 #include "SerialByteCounter.h"
+#include "OutputStreamPrinter.h"
 #include "json.h"
 
 namespace automation {
 namespace json {
 
-#ifdef ARDUINO_APP
-  std::ostream &operator<<(std::ostream &os, const __FlashStringHelper *pFlashStringHelper)
-  {
-    os << String(pFlashStringHelper).c_str();
-    return os;
-  }
-
-  std::ostream &operator<<(std::ostream &os, String &str)
-  {
-    os << str.c_str();
-    return os;
-  }
-
-  std::ostream &operator<<(std::ostream &os, uint8_t val)
-  {
-    unsigned int uiVal = val;
-    os << uiVal;
-    return os;
-  }
-#endif
-
-struct OutputStreamPrinter
-{
-  std::ostream *pOs;
-  OutputStreamPrinter(std::ostream *pOs = nullptr) : pOs(pOs) {}
-  template <typename T>
-  void print(T &val)
-  {
-    if (pOs)
-      (*pOs) << val;
-  }
-  template <typename T>
-  void println(T &val)
-  {
-    if (pOs)
-      (*pOs) << val << std::endl;
-  }
-};
-
-struct StringStreamPrinter : public OutputStreamPrinter
-{
-  stringstream ss;
-  StringStreamPrinter() : OutputStreamPrinter(&ss) {}
-};
-
-// ArduinoSTL library has std::cout going to HardwareSerial
-struct StdoutStreamPrinter : OutputStreamPrinter
-{
-  StdoutStreamPrinter() : OutputStreamPrinter(&cout) {}
-};
-
-static StdoutStreamPrinter stdoutStreamPrinter;
-
-struct NullStreamPrinter : public OutputStreamPrinter
-{
-  NullStreamPrinter() : OutputStreamPrinter(&automation::cnull) {}
-};
-
-static NullStreamPrinter nullStreamPrinter;
 
 /**
  *  Print JSON to something with print() and println() methods such as Arduino Serial
@@ -89,7 +31,7 @@ class JsonStreamWriter
     checksum += byteCounter.checksum;
   }
 
-  // All JsonWriter prints should end up here.  
+  // All JsonStreamWriter prints should end up here.  
   template<typename TPrintable>
   void statefulPrint(TPrintable printable) { 
     updateState(printable);
@@ -214,9 +156,15 @@ class JsonStreamWriter
   }
 
   template<typename TVal>
-  JsonStreamWriter operator+(TVal v) 
+  JsonStreamWriter& operator+(TVal v) 
   {
     return appendStringVal(v);
+  }
+
+  JsonStreamWriter& appendStringVal(const std::string& str)
+  { 
+    statefulPrint(str.c_str()); 
+    return *this;
   }
 
   //TODO - escape double quotes if a string
@@ -232,6 +180,25 @@ class JsonStreamWriter
     statefulPrint("\"");
     statefulPrint(suffix);
     beginStringObjByteCnt = -1;
+    return *this;
+  }
+
+  template<typename TVal>
+  JsonStreamWriter& printStringVal(TVal v, const char* suffix = "")
+  { 
+    printPrefix();
+    statefulPrint("\"");
+    statefulPrint(v);
+    statefulPrint("\"");
+    statefulPrint(suffix);
+    return *this;
+  }
+
+  template<typename TVal>
+  JsonStreamWriter& printlnStringVal(TVal v, const char* suffix = "")
+  { 
+    printStringVal(v,suffix);
+    println();
     return *this;
   }
 
@@ -299,6 +266,7 @@ class JsonStreamWriter
       const char* suffix = "", bool bVerbose = false ) {
     printKey(k);
     noPrefixPrint("[");
+    increaseDepth();
 
     bool bFirst = true;
     while( itr != endItr )
@@ -314,6 +282,7 @@ class JsonStreamWriter
       itr++;
     };
     noPrefixPrintln();
+    decreaseDepth();
     print("]");
     noPrefixPrint(suffix);
     return *this;

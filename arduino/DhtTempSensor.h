@@ -20,6 +20,7 @@ class DhtTempSensor : public DhtSensor {
     } 
     return cachedValue;
   }
+
 };
 }
 #endif

@@ -2,7 +2,7 @@
 #define AUTOMATION_CONSTRAINT_H
 
 #include "../Automation.h"
-#include "../json/JsonWriter.h"
+#include "../json/JsonStreamWriter.h"
 #include "../AttributeContainer.h"
 
 #include <string>

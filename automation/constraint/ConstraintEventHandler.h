@@ -29,9 +29,8 @@ namespace automation {
     void deferralCancelled(Constraint* pConstraint,bool bNew,unsigned long lastDurationMs) const override {
       for( auto handler : *this ) handler->deferralCancelled(pConstraint,bNew,lastDurationMs);
     }
+    static ConstraintEventHandlerList instance;
   };
-  
-  static ConstraintEventHandlerList constraintEventHandler;
 
 }
 #endif

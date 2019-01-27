@@ -4,7 +4,6 @@
 #include "text.h"
 
 #include <vector>
-#include <sstream>
 #include <iostream>
 
 using namespace std;
@@ -56,37 +55,9 @@ namespace automation {
 
   void threadKeepAliveReset();
 
-  template<typename T>
-  class AutomationVector : public std::vector<T> {
-  public:
-
-    AutomationVector() : std::vector<T>(){}
-    AutomationVector( vector<T>& v ) : std::vector<T>(v) {}
-    std::vector<T>& filterByNames( const char* pszCommaDelimitedNames, std::vector<T>& resultVec, bool bInclude = true) {
-      if ( pszCommaDelimitedNames == nullptr || strlen(pszCommaDelimitedNames) == 0 ) {
-        pszCommaDelimitedNames = "*";
-      }
-      istringstream nameStream(pszCommaDelimitedNames);
-      string str;
-      vector<string> nameVec;
-      while (std::getline(nameStream, str, ',')) {
-        nameVec.push_back(str);
-        if( nameStream.eof( ) ) {
-          break;
-        }
-      }
-      for( const T& item : *this ) {
-        for( const string& namePattern : nameVec) {
-          if (bInclude==text::WildcardMatcher::test(namePattern.c_str(),item->name.c_str()) ) {
-            resultVec.push_back(item);
-            break;
-          }
-        }
-      }
-      return resultVec;
-    };
-  };
-  
+  // If an external client is managing state we need to know if it is still connected.  When
+  // connection is lost, devices must revert to internal constraints to know when it is time
+  // to power off or change state
   namespace client { 
     namespace watchdog {
     const unsigned long KeepAliveExpireDurationMs = 2L*MINUTES;

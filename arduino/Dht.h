@@ -60,29 +60,6 @@ class Dht : public DHT {
     return rtn;
   }
 
-/*
-  virtual void print(int depth = 1)
-  {
-    float temp = readTemp();
-    float humidity = readHumidity();
-    float heatIndex = computeHeatIndex(temp, humidity, FAHRENHEIT);
-    JsonSerialWriter w(depth);
-    w.println("{")
-      .increaseDepth()
-      .printlnNumberObj(F("temp"),temp,",")
-      .printlnNumberObj(F("humidity"),humidity,",");
-    if ( status.code == 0 ) {
-      w.printlnNumberObj(F("heatIndex"),heatIndex);
-    } else {
-      w.printlnNumberObj(F("heatIndex"),heatIndex,",");
-      w.printKey(F("status"));
-      w.noPrefixPrintln("");
-      status.print(depth+1);
-    }
-    w.printlnNumberObj(F("heatIndex"),heatIndex)
-     .decreaseDepth()
-     .print("}");
-  }
-  */
+
 };
 #endif

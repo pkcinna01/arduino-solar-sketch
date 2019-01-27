@@ -2,7 +2,7 @@
 #ifndef ARDUINO_CURRRENT_SENSOR_H
 #define ARDUINO_CURRRENT_SENSOR_H
 #include "ArduinoSensor.h"
-#include "../automation/json/JsonWriter.h"
+#include "../automation/json/JsonStreamWriter.h"
 
 #include <Adafruit_ADS1015.h>
 
@@ -128,7 +128,8 @@ public:
  void print(JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const override {
     if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
     w.increaseDepth();
-    w.printlnStringObj(F("name"), name.c_str(), ",");
+    w.printlnStringObj(F("name"), name, ",");
+    w.printlnStringObj(F("id"), id, ",");
     if ( bVerbose ) {
       String strChannel;
       switch (channel) {
@@ -154,7 +155,7 @@ public:
         case GAIN_TWOTHIRDS: 
         default:  strGain = "GAIN_TWOTHIRDS";
       };
-      w.printlnNumberObj(F("gain"), strGain, ",");
+      w.printlnStringObj(F("gain"), strGain, ",");
       char buffer[20];
       dtostrf(getMilliVoltIncrement(), 2, 8, buffer);
       w.printlnStringObj(F("millivoltIncrement"),buffer,",");

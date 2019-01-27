@@ -41,7 +41,8 @@ namespace arduino {
       if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
  
       w.increaseDepth();
-      w.printlnStringObj(F("name"), name.c_str(), ",");
+      w.printlnStringObj(F("name"), name, ",");
+      w.printlnStringObj(F("id"), id, ",");
       if ( bVerbose ) {
         w.printKey(F("voltage"));
         pVoltageSensor->print(w,bVerbose,false);

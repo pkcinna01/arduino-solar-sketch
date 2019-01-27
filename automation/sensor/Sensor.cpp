@@ -1,6 +1,6 @@
 #include "Sensor.h"
 #include "CompositeSensor.h"
-#include "../json/JsonWriter.h"
+#include "../json/JsonStreamWriter.h"
 
 #include <algorithm>
 
@@ -36,11 +36,12 @@ namespace automation {
     float value = getValue();
     if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
     w.increaseDepth();
-    w.printlnStringObj(F("name"), name.c_str(), ",");
-    w.printlnNumberObj(F("value"), value, ",");
+    w.printlnStringObj(F("name"), name, ",");
+    w.printlnStringObj(F("id"), id, ",");
     if ( bVerbose ) {
-      w.printlnStringObj(F("type"), getType().c_str());
+      w.printlnStringObj(F("type"), getType(), ",");
     }
+    w.printlnNumberObj(F("value"), value);
     w.decreaseDepth();
     w.print("}");
   }
@@ -48,7 +49,8 @@ namespace automation {
   void CompositeSensor::print(JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const {
     if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
     w.increaseDepth();
-    w.printlnStringObj(F("name"), name.c_str(), ",");
+    w.printlnStringObj(F("name"), name, ",");
+    w.printlnStringObj(F("id"), id, ",");
     if ( bVerbose ) {
       w.printKey(F("sensors"));
       w.noPrefixPrintln("[");

@@ -40,10 +40,9 @@ namespace arduino {
       digitalWrite(relayPin,bOn?onValue:!onValue);
     }
 
-    void printVerboseExtra(JsonStreamWriter& w, bool bIncludePrefix=false) const {
-      if ( bIncludePrefix ) w.println(","); else w.noPrefixPrintln(",");
-      
-      w.printlnNumberObj(F("relayPin"),relayPin,"");
+    void printVerboseExtra(JsonStreamWriter& w) const {
+      w.noPrefixPrintln(",");      
+      w.printlnNumberObj(F("relayPin"),relayPin);
     }
 
   };

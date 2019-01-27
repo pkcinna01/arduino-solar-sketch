@@ -11,7 +11,7 @@
 
 // automation includes not specific to arduino
 #include "automation/Automation.h"
-#include "automation/json/JsonWriter.h"
+#include "automation/json/JsonStreamWriter.h"
 #include "automation/sensor/Sensor.h"
 #include "automation/sensor/CompositeSensor.h"
 #include "automation/constraint/Constraint.h"
@@ -146,17 +146,24 @@ Sensors sensors {{
 
 void setup() {
   //Serial.begin(38400, SERIAL_8O1); // bit usage: 8 data, odd parity, 1 stop
-  Serial.begin(38400, SERIAL_8N1); // for IDE testing
 
+  NumericIdentifier::init(sensors); // use the array indices as ID's 
+  NumericIdentifier::init(devices);
+
+  unsigned long serialSpeed = 38400;
+  unsigned int serialConfig = SERIAL_8N1;
+  
   String version;
   eeprom.getVersion(version);
   if ( version != VERSION )
   {
     gLastInfoMsg = F("Version changed. Clearing EEPROM and saving defaults.  Old: ");
     gLastInfoMsg += version;
-    gLastInfoMsg += " New: ";
+    gLastInfoMsg += F(" New: ");
     gLastInfoMsg += VERSION;
     eeprom.setVersion(VERSION);
+    eeprom.setSerialSpeed(serialSpeed);
+    eeprom.setSerialConfig(serialConfig);
     eeprom.setJsonFormat(automation::json::jsonFormat);
     eeprom.setCommandCount(0);
   }
@@ -165,9 +172,13 @@ void setup() {
     gLastInfoMsg = F("Loading EEPROM data for version ");
     gLastInfoMsg += version;
     json::jsonFormat = eeprom.getJsonFormat();
+    serialSpeed = eeprom.getSerialSpeed();
+    serialConfig = eeprom.getSerialConfig();
     JsonStreamWriter writer(json::nullStreamPrinter);
     CommandProcessor::setup(writer, sensors, devices);
   }
+
+  Serial.begin(serialSpeed, serialConfig);
 
   for (Sensor* pSensor : sensors) {
     pSensor->setup();
@@ -257,7 +268,7 @@ void loop() {
     {
       arduino::watchdog::keepAlive();
       automation::client::watchdog::messageReceived();
-      int respCode = cmdProcessor.execute(pszCmd);
+      cmdProcessor.execute(pszCmd);
     }
 
     writer.decreaseDepth();

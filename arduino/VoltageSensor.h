@@ -3,7 +3,7 @@
 #define ARDUINO_VOLTAGE_SENSOR_H
 
 #include "AnalogSensor.h"
-#include "../automation/json/JsonWriter.h"
+#include "../automation/json/JsonStreamWriter.h"
 
 using namespace automation::json;
 
@@ -56,7 +56,8 @@ public:
     if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
     
     w.increaseDepth();
-    w.printlnStringObj(F("name"), name.c_str(), ",");
+    w.printlnStringObj(F("name"), name, ",");
+    w.printlnStringObj(F("id"), id, ",");
     if ( bVerbose ) {
       w.printlnNumberObj(F("analogPin"), sensorPin, ",");
       w.printlnNumberObj(F("assignedVcc"), assignedVcc, ",");

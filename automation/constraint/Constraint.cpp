@@ -2,7 +2,7 @@
 #include "Constraint.h"
 #include "ConstraintEventHandler.h"
 
-#include "../json/JsonWriter.h"
+#include "../json/JsonStreamWriter.h"
 
 
 namespace automation {
@@ -64,7 +64,7 @@ namespace automation {
     }
 
     if ( deferredResultCnt == 1 ) {
-      constraintEventHandler.resultDeferred(this,bCheckPassed,bCheckPassed?passDelayMs:failDelayMs);
+      ConstraintEventHandlerList::instance.resultDeferred(this,bCheckPassed,bCheckPassed?passDelayMs:failDelayMs);
     }
 
     return bPassed;
@@ -75,15 +75,15 @@ namespace automation {
     if ( bPassed != this->bPassed ) {
       deferredResultCnt = 0;
       this->bPassed = bPassed;
-      constraintEventHandler.resultChanged(this,bPassed,automation::millisecs()-changeTimeMs);
+      ConstraintEventHandlerList::instance.resultChanged(this,bPassed,automation::millisecs()-changeTimeMs);
       changeTimeMs = automation::millisecs();
     } else if ( deferredResultCnt ) {
       deferredResultCnt = 0;
       unsigned long lastDeferredTimeMs = deferredTimeMs;
       deferredTimeMs = millisecs();
-      constraintEventHandler.deferralCancelled(this,bPassed,automation::millisecs()-lastDeferredTimeMs);
+      ConstraintEventHandlerList::instance.deferralCancelled(this,bPassed,automation::millisecs()-lastDeferredTimeMs);
     } else {
-      constraintEventHandler.resultSame(this,bPassed,automation::millisecs()-deferredTimeMs);
+      ConstraintEventHandlerList::instance.resultSame(this,bPassed,automation::millisecs()-deferredTimeMs);
     }
   }
 
@@ -101,12 +101,17 @@ namespace automation {
       if ( bIsDeferred ) {
         w.printlnNumberObj(F("deferredRemainingMs"),getDeferredRemainingMs(), ",");    
       }
-      w.printStringObj(F("mode"), Constraint::modeToString(mode).c_str());    
+      w.printlnStringObj(F("mode"), Constraint::modeToString(mode).c_str(),",");    
     }
     w.printStringObj(F("type"), getType().c_str());
     w.decreaseDepth();
     w.noPrefixPrintln("");
     w.print("}");
   }
+
+  ConstraintEventHandlerList ConstraintEventHandlerList::instance;
+
 }
+
+
 

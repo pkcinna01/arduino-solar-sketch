@@ -55,12 +55,13 @@ public:
     float value = getValue();
     if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
     w.increaseDepth();
-    w.printlnStringObj(F("name"),name.c_str(),",");
+    w.printlnStringObj(F("name"),name,",");
+    w.printlnStringObj(F("id"),id,",");
     if ( bVerbose ) {
       w.printlnNumberObj(F("sensorPin"),sensorPin,",");
       w.printlnNumberObj(F("sampleCnt"),sampleCnt,",");
       w.printlnNumberObj(F("sampleIntervalMs"),sampleIntervalMs,",");
-      w.printlnStringObj(F("type"),getType().c_str(),",");
+      w.printlnStringObj(F("type"),getType(),",");
     }
     if ( status.code != 0 ) {
       w.printKey(F("status"));

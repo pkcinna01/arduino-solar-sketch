@@ -1,6 +1,6 @@
 #include "Device.h"
 #include "../capability/Capability.h"
-#include "../json/JsonWriter.h"
+#include "../json/JsonStreamWriter.h"
 
 
 namespace automation {
@@ -69,14 +69,15 @@ bool Device::setAttribute(const char* pszKey, const char* pszVal, ostream* pResp
 void Device::print(json::JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const {
   if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
   w.increaseDepth();
-  w.printlnStringObj(F("name"),name.c_str(),",");
-  w.printlnStringObj(F("type"),getType().c_str(),",");    
+  w.printlnStringObj(F("name"),name,",");
+  w.printlnStringObj(F("id"), id, ",");
+  w.printlnStringObj(F("type"),getType(),",");    
   w.printKey(F("constraint"));
   if ( bVerbose ) {
-    pConstraint->print(w,bVerbose);
+    pConstraint->print(w,bVerbose,json::PrefixOff);
     w.noPrefixPrintln(",");
     w.printVectorObj(F("capabilities"), capabilities);
-    printVerboseExtra(w,bIncludePrefix);
+    printVerboseExtra(w);
   } else {
     w.noPrefixPrint("{ \"") + F("state\": ") + (pConstraint->isPassed() ? "PASSED" : "FAILED");
     w.noPrefixPrintln(" }");

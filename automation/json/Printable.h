@@ -1,12 +1,17 @@
 #ifndef _AUTOMATION_JSON_PRINTABLE_H_
 #define _AUTOMATION_JSON_PRINTABLE_H_
 
-#include "JsonWriter.h"
+#include "JsonStreamWriter.h"
 
 namespace automation
 {
 namespace json
 {
+  //TODO - typedef some types for type checking args at compile time in call to print()
+const bool PrefixOn = true;
+const bool PrefixOff = false;
+const bool VerboseOn = true;
+const bool VerboseOff = false;
 
 struct Printable
 {
