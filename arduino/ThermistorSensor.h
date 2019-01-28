@@ -5,6 +5,7 @@
 #include "AnalogSensor.h"
 
 namespace arduino {
+
 class ThermistorSensor : public AnalogSensor {
   public:
   float beta; //3950.0,  3435.0 
@@ -42,6 +43,34 @@ class ThermistorSensor : public AnalogSensor {
     float tFahrenheit = (tCelsius * 9.0)/ 5.0 + 32.0;
     return tFahrenheit;
   }
+
+  virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override {
+    SetCode rtn = AnalogSensor::setAttribute(pszKey,pszVal,pRespStream);
+    if ( rtn == SetCode::Ignored ) {
+      if ( !strcasecmp_P(pszKey, PSTR("balanceResistance")) ) {
+        balanceResistance = atof(pszVal);
+        rtn = SetCode::OK;
+      } else if ( !strcasecmp_P(pszKey, PSTR("beta")) ) {
+        beta = atof(pszVal);
+        rtn = SetCode::OK;
+      } else if ( !strcasecmp_P(pszKey, PSTR("roomTempResistance")) ) {
+        roomTempResistance = atof(pszVal);
+        rtn = SetCode::OK;
+      }
+      if (pRespStream && rtn == SetCode::OK ) {
+        (*pRespStream) << "'" << name << "' " << pszKey << "=" << pszVal;
+      }
+    }
+    return rtn;
+  }
+
+  virtual void printVerboseExtra(JsonStreamWriter& w) const override {
+    w.printlnNumberObj(F("beta"),beta,",");
+    w.printlnNumberObj(F("balanceResistance"),balanceResistance,",");
+    w.printlnNumberObj(F("roomTempResistance"),roomTempResistance,",");
+  }
+
 };
+
 }
 #endif

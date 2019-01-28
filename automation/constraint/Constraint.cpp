@@ -88,20 +88,72 @@ namespace automation {
   }
 
 
+  SetCode Constraint::setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream) {
+    string strResultValue;
+    SetCode rtn = AttributeContainer::setAttribute(pszKey,pszVal,pRespStream);
+    if ( rtn == SetCode::Ignored ) {
+      if ( !strcasecmp_P(pszKey,PSTR("MODE")) ) {
+        Mode newMode = Constraint::parseMode(pszVal);
+        if ( newMode != INVALID_MODE ) {
+          mode = newMode;
+          strResultValue = Constraint::modeToString(mode);
+          test();
+          rtn = SetCode::OK;
+        } else {
+          if (pRespStream) {
+          (*pRespStream) << RVSTR("Not a valid mode: ") << pszVal;
+          }
+          rtn = SetCode::Error;
+        }
+      } else if ( !strcasecmp_P(pszKey,PSTR("PASSED")) ) {
+        overrideTestResult(text::parseBool(pszVal));
+        strResultValue = isPassed() ? "TRUE" : "FALSE";
+        rtn = SetCode::OK;
+      } else if ( !strcasecmp_P(pszKey,PSTR("passDelayMs")) ) {
+        setPassDelayMs(atol(pszVal));
+        strResultValue = text::asString(getPassDelayMs());
+        rtn = SetCode::OK;
+      } else if ( !strcasecmp_P(pszKey,PSTR("failDelayMs")) ) {
+        setFailDelayMs(atol(pszVal));
+        strResultValue = text::asString(getFailDelayMs());
+        rtn = SetCode::OK;
+      } else if ( !strcasecmp_P(pszKey,PSTR("passMargin")) ) {
+        setPassMargin(atof(pszVal));
+        strResultValue = text::asString(getPassMargin());
+        rtn = SetCode::OK;
+      } else if ( !strcasecmp_P(pszKey,PSTR("failMargin")) ) {
+        setFailMargin(atof(pszVal));
+        strResultValue = text::asString(getFailMargin());
+        rtn = SetCode::OK;
+      }
+      if (pRespStream && rtn == SetCode::OK ) {
+        (*pRespStream) << "'" << getTitle() << "' " << pszKey << "=" << strResultValue;
+      }
+    }
+    return rtn;
+  }
+
   void Constraint::print(json::JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const {
     if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
     w.increaseDepth();
-    w.printlnStringObj(F("title"), getTitle().c_str() , ",");
+    w.printlnStringObj(F("title"), getTitle(), ",");
+    w.printlnNumberObj(F("id"), (unsigned long) id, ",");
     w.printlnStringObj(F("state"), isPassed() ? "PASSED" : "FAILED", ",");
     if ( bVerbose ) {
+      if ( !children.empty() ) {
+        w.printlnVectorObj(F("children"), children, ",");
+      }
       w.printlnNumberObj(F("passDelayMs"),getPassDelayMs(), ",");    
       w.printlnNumberObj(F("failDelayMs"),getFailDelayMs(), ",");    
+      w.printlnNumberObj(F("passMargin"),getPassMargin(), ",");    
+      w.printlnNumberObj(F("failMargin"),getFailMargin(), ",");    
       bool bIsDeferred = isDeferred();
       w.printlnBoolObj(F("isDeferred"),bIsDeferred, ",");    
       if ( bIsDeferred ) {
         w.printlnNumberObj(F("deferredRemainingMs"),getDeferredRemainingMs(), ",");    
       }
-      w.printlnStringObj(F("mode"), Constraint::modeToString(mode).c_str(),",");    
+      w.printlnStringObj(F("mode"), Constraint::modeToString(mode).c_str(),",");  
+      printVerboseExtra(w);  
     }
     w.printStringObj(F("type"), getType().c_str());
     w.decreaseDepth();

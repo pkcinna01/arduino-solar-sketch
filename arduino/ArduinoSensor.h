@@ -30,28 +30,27 @@ public:
 
   virtual float getValueImpl() const = 0;
 
-  virtual bool setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr){
-    if ( Sensor::setAttribute(pszKey,pszVal,pRespStream) ) {
-      return true;
-    } else {
+  virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr){
+    SetCode rtn = Sensor::setAttribute(pszKey,pszVal,pRespStream);
+    if ( rtn == SetCode::Ignored ) {
       if ( !strcasecmp_P(pszKey, PSTR("sensorPin")) ) {
         sensorPin = atoi(pszVal);
+        rtn = SetCode::OK;
       } else if ( !strcasecmp_P(pszKey, PSTR("sampleCnt")) ) {
         sampleCnt = atoi(pszVal);
+        rtn = SetCode::OK;
       } else if ( !strcasecmp_P(pszKey, PSTR("sampleIntervalMs")) ) {
         sampleIntervalMs = atoi(pszVal);
-      } else {
-        return false;
+        rtn = SetCode::OK;
       }
-      if (pRespStream) {
+      if (pRespStream && rtn == SetCode::OK ) {
         (*pRespStream) << "'" << name << "' " << pszKey << "=" << pszVal;
       }
-      return true;
     }
+    return rtn;
   }
     
-
-  void print(JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const override {
+  virtual void print(JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const override {
     float value = getValue();
     if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
     w.increaseDepth();
@@ -62,6 +61,7 @@ public:
       w.printlnNumberObj(F("sampleCnt"),sampleCnt,",");
       w.printlnNumberObj(F("sampleIntervalMs"),sampleIntervalMs,",");
       w.printlnStringObj(F("type"),getType(),",");
+      printVerboseExtra(w);
     }
     if ( status.code != 0 ) {
       w.printKey(F("status"));

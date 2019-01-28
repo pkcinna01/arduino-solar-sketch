@@ -44,6 +44,11 @@ namespace automation {
         : ValueConstraint<ValueT,ValueSourceT>(valueSource), minVal(minVal), maxVal(maxVal) {
     }
 
+    virtual void printVerboseExtra(json::JsonStreamWriter& w) const override {
+      w.printlnNumberObj(F("minVal"),minVal,",");
+      w.printlnNumberObj(F("maxVal"),maxVal,",");
+    }
+
     bool checkValue(const ValueT &value) override {
       ValueT minVal = this->minVal;
       ValueT maxVal = this->maxVal;
@@ -59,6 +64,26 @@ namespace automation {
       }
 
       return value >= minVal && value <= maxVal;
+    }
+
+    SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override {
+      SetCode rtn = ValueConstraint<ValueT,ValueSourceT>::setAttribute(pszKey,pszVal,pRespStream);
+      string strResultValue;
+      if ( rtn == SetCode::Ignored ) {
+        if ( !strcasecmp_P(pszKey,PSTR("minVal")) ) {
+          minVal = atof(pszVal);
+          strResultValue = text::asString(minVal);
+          rtn = SetCode::OK;
+        } else if ( !strcasecmp_P(pszKey,PSTR("maxVal")) ) {
+          maxVal = atof(pszVal);
+          strResultValue = text::asString(maxVal);
+          rtn = SetCode::OK;
+        }
+        if (pRespStream && rtn == SetCode::OK ) {
+          (*pRespStream) << "'" << getTitle() << "' " << pszKey << "=" << strResultValue;
+        }
+      }
+      return rtn;
     }
 
     string getTitle() const override {
@@ -102,12 +127,20 @@ namespace automation {
         , bDeleteThreshold(false) {
     }
 
+    virtual void printVerboseExtra(json::JsonStreamWriter& w) const override {
+      if ( pThreshold) {
+        w.printlnNumberObj(F("threshold"),pThreshold->getValue(),",");
+      }
+    }
+
     string getTitle() const override {
       string rtn(this->valueSource.name);
       rtn += " ";
       rtn += this->getType();
       rtn += "(";
-      rtn += text::asString(pThreshold->getValue());
+      if ( pThreshold ) {
+        rtn += text::asString(pThreshold->getValue());
+      }
       rtn += ")";
       return rtn;
     }
@@ -116,6 +149,27 @@ namespace automation {
       if ( bDeleteThreshold ) {        
         delete pThreshold;
       }
+    }
+
+    SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override {
+      SetCode rtn = ValueConstraint<ValueT,ValueSourceT>::setAttribute(pszKey,pszVal,pRespStream);
+      string strResultValue;
+      if ( rtn == SetCode::Ignored ) {
+        if ( !strcasecmp_P(pszKey,PSTR("THRESHOLD")) ) {
+          ValueT val = atof(pszVal);
+          if (bDeleteThreshold) {
+            delete pThreshold;
+          } 
+          bDeleteThreshold = true;
+          pThreshold = new ConstantValueHolder<ValueT>(val);
+          strResultValue = text::asString(pThreshold->getValue());
+          rtn = SetCode::OK;
+        }
+        if (pRespStream && rtn == SetCode::OK ) {
+          (*pRespStream) << "'" << getTitle() << "' " << pszKey << "=" << strResultValue;
+        }
+      }
+      return rtn;
     }
 
     protected:

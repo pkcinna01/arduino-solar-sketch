@@ -7,31 +7,33 @@ namespace automation {
 
   class NestedConstraint : public Constraint {
   public:
-    explicit NestedConstraint(Constraint *pConstraint) :
-        pConstraint(pConstraint) {
+    explicit NestedConstraint(Constraint *pConstraint) {
+      children.push_back(pConstraint);
     }
 
     virtual bool outerCheckValue(bool bInnerResult) = 0;
 
     bool checkValue() override {
-      return outerCheckValue(pConstraint->test()); // need to honor delays of inner constraint so cannot call checkValue directly
+      return outerCheckValue(inner()->test()); // need to honor delays of inner constraint so cannot call checkValue directly
       //return outerCheckValue(pConstraint->checkValue());
+    }
+
+    Constraint* inner() const {
+      return children[0];
     }
 
     string getTitle() const override {
       string title = getType();
       title += "(";
-      title += pConstraint->getTitle();
+      title += inner()->getTitle();
       title += ")";
       return title;
     }
 
     bool isSynchronizable() const override {
-      return pConstraint->isSynchronizable();
+      return inner()->isSynchronizable();
     }
 
-  protected:
-    Constraint *pConstraint;
   };
 
 }

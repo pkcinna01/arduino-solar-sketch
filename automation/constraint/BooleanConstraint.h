@@ -13,6 +13,7 @@ namespace automation {
     RTTI_GET_TYPE_IMPL(automation,Boolean)
 
     explicit BooleanConstraint(bool bResult) : bResult(bResult) {
+      bPassed = bResult;
     }
 
     bool checkValue() override {

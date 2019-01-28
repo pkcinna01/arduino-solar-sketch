@@ -22,26 +22,14 @@ void Device::applyConstraint(bool bIgnoreSameState, Constraint *pConstraint) {
 }
 
 #define CAPABILITY_PREFIX_SIZE 11
-bool Device::setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream) {
-  if ( AttributeContainer::setAttribute(pszKey,pszVal,pRespStream) ) {
-    return true;
-  } else {
-    if ( !strcasecmp_P(pszKey,PSTR("CONSTRAINT/MODE")) ) {
-      if ( pConstraint ) {
-        pConstraint->mode = Constraint::parseMode(pszVal);
-        applyConstraint();
-        if (pRespStream) {
-            (*pRespStream) << "'" << pConstraint->getTitle() << "' " << pszKey << "=" << Constraint::modeToString(pConstraint->mode);
-        }
-      }
-    } else if ( !strcasecmp_P(pszKey,PSTR("CONSTRAINT/PASSED")) ) {
-      if ( pConstraint ) {
-        pConstraint->overrideTestResult(text::parseBool(pszVal));
-        //applyConstraint();
-        if (pRespStream) {
-            (*pRespStream) << "'" << pConstraint->getTitle() << "' " << pszKey << "=" << pConstraint->isPassed();
-        }
-      }
+#define CONSTRAINT_PREFIX_SIZE 11
+SetCode Device::setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream) {
+  SetCode rtn = NamedContainer::setAttribute(pszKey,pszVal,pRespStream);
+  if ( rtn == SetCode::Ignored ) {
+    if ( pConstraint && !strncasecmp_P(pszKey,PSTR("CONSTRAINT/"),CONSTRAINT_PREFIX_SIZE) ) {
+      const char* pszConstraintKey = &pszKey[CONSTRAINT_PREFIX_SIZE];
+      rtn = pConstraint->setAttribute(pszConstraintKey,pszVal,pRespStream);
+      applyConstraint();
     } else if ( !strncasecmp_P(pszKey,PSTR("CAPABILITY/"),CAPABILITY_PREFIX_SIZE) ) {
       float targetValue = !strcasecmp(pszVal, "ON") ? 1 : !strcasecmp(pszVal, "OFF") ? 0 : atof(pszVal);
       const char* pszTypePattern = &pszKey[CAPABILITY_PREFIX_SIZE];
@@ -58,19 +46,19 @@ bool Device::setAttribute(const char* pszKey, const char* pszVal, ostream* pResp
           }
         }
       }
-      return matchCnt > 0;
-    } else {
-      return false;
+      if ( matchCnt > 0 ) {
+        rtn = SetCode::OK;
+      }
     }
-    return true;
   }
+  return rtn;
 }
 
 void Device::print(json::JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const {
   if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
   w.increaseDepth();
   w.printlnStringObj(F("name"),name,",");
-  w.printlnStringObj(F("id"), id, ",");
+  w.printlnNumberObj(F("id"), (unsigned long) id, ",");
   w.printlnStringObj(F("type"),getType(),",");    
   w.printKey(F("constraint"));
   if ( bVerbose ) {

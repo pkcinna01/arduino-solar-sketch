@@ -24,6 +24,7 @@ namespace automation {
 
     Device(const string &name) :
         NamedContainer(name), pConstraint(nullptr), bError(false) {
+      assignId(this);
     }
 
     RTTI_GET_TYPE_DECL;
@@ -46,7 +47,7 @@ namespace automation {
     
     virtual void setup() = 0;
     
-    virtual bool setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override;
+    virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override;
     
     friend std::ostream &operator<<(std::ostream &os, const Device &d) {
       os << F("\"Device\": { \"name\": \"") << d.name << "\" }";
@@ -58,13 +59,12 @@ namespace automation {
   };
 
 
-  class Devices : public NamedItemVector<Device*> {
+  class Devices : public AttributeContainerVector<Device*> {
   public:
     Devices(){}
-    Devices( vector<Device*>& devices ) : NamedItemVector<Device*>(devices) {}
-    Devices( vector<Device*> devices ) : NamedItemVector<Device*>(devices) {}
+    Devices( vector<Device*>& devices ) : AttributeContainerVector<Device*>(devices) {}
+    Devices( vector<Device*> devices ) : AttributeContainerVector<Device*>(devices) {}
   };
-
 
 }
 

@@ -109,8 +109,8 @@ struct OutletSwitch : public arduino::PowerSwitch {
   AndConstraint constraints { {&outletsMinSteadySupplyVoltage, &outletsMinDipSupplyVoltage} };
   OutletSwitch(const string& name, int pin, int onValue = HIGH) : arduino::PowerSwitch(name, pin, onValue) {
     setConstraint(&constraints);
-    outletsMinDipSupplyVoltage.setPassDelayMs(5 * MINUTES).setFailDelayMs(15 * SECONDS).setPassMargin(2);
-    outletsMinSteadySupplyVoltage.setPassDelayMs(15 * MINUTES).setFailDelayMs(1 * MINUTES).setPassMargin(2);
+    outletsMinDipSupplyVoltage.setPassDelayMs(5ul * MINUTES).setFailDelayMs(15 * SECONDS).setPassMargin(2);
+    outletsMinSteadySupplyVoltage.setPassDelayMs(15ul * MINUTES).setFailDelayMs(1 * MINUTES).setPassMargin(2);
   }
 };
 
@@ -145,10 +145,6 @@ Sensors sensors {{
   }};
 
 void setup() {
-  //Serial.begin(38400, SERIAL_8O1); // bit usage: 8 data, odd parity, 1 stop
-
-  NumericIdentifier::init(sensors); // use the array indices as ID's 
-  NumericIdentifier::init(devices);
 
   unsigned long serialSpeed = 38400;
   unsigned int serialConfig = SERIAL_8N1;

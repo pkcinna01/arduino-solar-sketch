@@ -37,9 +37,10 @@ namespace automation {
     if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
     w.increaseDepth();
     w.printlnStringObj(F("name"), name, ",");
-    w.printlnStringObj(F("id"), id, ",");
+    w.printlnNumberObj(F("id"), (unsigned long) id, ",");
     if ( bVerbose ) {
       w.printlnStringObj(F("type"), getType(), ",");
+      printVerboseExtra(w);
     }
     w.printlnNumberObj(F("value"), value);
     w.decreaseDepth();
@@ -50,7 +51,7 @@ namespace automation {
     if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
     w.increaseDepth();
     w.printlnStringObj(F("name"), name, ",");
-    w.printlnStringObj(F("id"), id, ",");
+    w.printlnNumberObj(F("id"), (unsigned long) id, ",");
     if ( bVerbose ) {
       w.printKey(F("sensors"));
       w.noPrefixPrintln("[");

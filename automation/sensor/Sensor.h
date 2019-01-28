@@ -2,6 +2,7 @@
 #define AUTOMATION_SENSOR_H
 
 #include "../Automation.h"
+#include "../json/JsonStreamWriter.h"
 #include "../AttributeContainer.h"
 
 #include <string>
@@ -23,6 +24,7 @@ namespace automation {
 
     Sensor(const std::string& name) : NamedContainer(name)
     {
+      assignId(this);
     }
 
     virtual void setup()
@@ -30,6 +32,8 @@ namespace automation {
       bInitialized = true;
     }
   
+    virtual void printVerboseExtra(json::JsonStreamWriter& w) const {}
+
     virtual void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const override;
 
     template<typename ObjectPtr,typename MethodPtr>
@@ -79,12 +83,12 @@ namespace automation {
     {
     }
 
-    virtual float getValue() const
+    virtual float getValue() const override
     {
       return getValueImpl();
     }
 
-    virtual float operator()() const {
+    float operator()() const {
       return getValue();
     }
   };
@@ -103,18 +107,18 @@ namespace automation {
       sourceSensor(sourceSensor),
       transformFn(transformFn) {
     }
-    virtual float getValue() const
+    virtual float getValue() const override
     {
       return transformFn(sourceSensor.getValue());
     }
 
   };
 
-  class Sensors : public NamedItemVector<Sensor*> {
+  class Sensors : public AttributeContainerVector<Sensor*> {
   public:
     Sensors(){}
-    Sensors( vector<Sensor*>& sensors ) : NamedItemVector<Sensor*>(sensors) {}
-    Sensors( vector<Sensor*> sensors ) : NamedItemVector<Sensor*>(sensors) {}
+    Sensors( vector<Sensor*>& sensors ) : AttributeContainerVector<Sensor*>(sensors) {}
+    Sensors( vector<Sensor*> sensors ) : AttributeContainerVector<Sensor*>(sensors) {}
   };
 
 }

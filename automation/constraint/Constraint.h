@@ -8,6 +8,7 @@
 #include <string>
 #include <iostream>
 #include <string.h>
+#include <set>
 
 using namespace std;
 
@@ -59,12 +60,37 @@ namespace automation {
       }
     }
 
+    static NumericIdentifierValue idGenerator;
+
+    // access constraints without having to traverse all devices and nested constraints
+    static std::set<Constraint*>& all(){
+      static std::set<Constraint*> all;
+      return all;
+    }    
+
     Mode mode = TEST_MODE;
     
+    Constraint() {
+      assignId(this);
+      all().insert(this);
+    }
+
+    Constraint(const std::vector<Constraint*>& children) : 
+        children(children){
+      assignId(this);
+      all().insert(this);
+    }
+
+    virtual ~Constraint() {
+      all().erase(this);
+    }
+
     virtual bool checkValue() = 0;
     virtual string getTitle() const { return getType(); }
     virtual bool isSynchronizable() const { return true; }
     virtual bool test();
+
+    SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override;
 
     Constraint& setPassDelayMs(unsigned long delayMs) {
       passDelayMs = delayMs;
@@ -88,16 +114,16 @@ namespace automation {
 
     unsigned long getPassDelayMs() const { return passDelayMs; }
     unsigned long getFailDelayMs() const { return failDelayMs; }
-    unsigned long getPassMargin() const { return passMargin; }
-    unsigned long getFailMargin() const { return failMargin; }
+    float getPassMargin() const { return passMargin; }
+    float getFailMargin() const { return failMargin; }
     unsigned long getDeferredRemainingMs() const { return max(0UL,(bPassed?failDelayMs:passDelayMs) - deferredDuration()); }
     bool isDeferred() const { return deferredResultCnt > 0; }
 
-    virtual void resetDeferredTime() {
+    void resetDeferredTime() {
       deferredTimeMs = 0;
     }
 
-    virtual bool overrideTestResult(bool bNewResult) {
+    bool overrideTestResult(bool bNewResult) {
       resetDeferredTime();
       if ( bNewResult != bPassed ) {
         setPassed(bNewResult);
@@ -105,24 +131,35 @@ namespace automation {
       return bPassed;
     }
     
-    virtual bool isPassed() const { return bPassed; };
+    bool isPassed() const { return bPassed; };
+
+    virtual void printVerboseExtra(json::JsonStreamWriter& w) const {}
 
     void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const override;
 
     protected:
 
+    vector<Constraint *> children;
     bool bPassed = false;
     unsigned long deferredTimeMs = 0, changeTimeMs { automation::millisecs() };
     unsigned int deferredResultCnt = 0;
     float passMargin = 0;
     float failMargin = 0;
-    virtual void setPassed(bool bPassed);
+    void setPassed(bool bPassed);
     
     unsigned long deferredDuration() const {
         unsigned long nowMs = millisecs();
         return (nowMs - deferredTimeMs);
     }
 
+  };
+
+  class Constraints : public AttributeContainerVector<Constraint*> {
+  public:
+    Constraints(){}
+    Constraints( vector<Constraint*>& constraints ) : AttributeContainerVector<Constraint*>(constraints) {}
+    Constraints( vector<Constraint*> constraints ) : AttributeContainerVector<Constraint*>(constraints) {}
+    Constraints( set<Constraint*>& constraints ) : AttributeContainerVector<Constraint*>(constraints.begin(),constraints.end()) {}
   };
 }
 #endif
