@@ -4,6 +4,8 @@
 #include "Constraint.h"
 #include "../capability/Capability.h"
 
+#include <algorithm>
+
 namespace automation {
 
 class SimultaneousConstraint : public Constraint, public Capability::CapabilityListener {
@@ -89,6 +91,23 @@ class SimultaneousConstraint : public Constraint, public Capability::CapabilityL
           }
         }
       }
+    }
+
+    virtual void printVerboseExtra(json::JsonStreamWriter& w) const override {
+      w.printlnNumberObj(F("maxIntervalMs"),maxIntervalMs,",");
+      w.printlnNumberObj(F("remainingMs"), std::max((float)0,(float)maxIntervalMs-(float)(millisecs()-lastPassTimeMs)),",");
+      w.printKey(F("capabilityIds"));
+      w + F(" [");
+      bool bFirst = true;
+      for( auto pCap : capabilityGroup){
+        if ( bFirst ) {
+          bFirst = false;
+        } else {
+          w + F(",");
+        }
+        w + (unsigned int) pCap->id;
+      }
+      w.noPrefixPrintln(F("],"));
     }
 
   protected:

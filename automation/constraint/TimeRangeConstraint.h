@@ -20,6 +20,18 @@ namespace automation {
       int hour, minute, second;
     } beginTime, endTime;
 
+    static string timeAsString(const Time& t) {
+      stringstream ss;
+      timeAsString(t,ss);
+      return ss.str();
+    }
+
+    static std::ostream& timeAsString(const Time& t, std::ostream& os) {
+      os << setfill('0') << setw(2) << t.hour << ":" << setfill('0') << setw(2) << t.minute 
+         << ":" << setfill('0') << setw(2) << t.second;
+      return os;            
+    }
+
     TimeRangeConstraint(Time beginTime, Time endTime) :
         beginTime(beginTime),
         endTime(endTime) {
@@ -46,14 +58,17 @@ namespace automation {
 
     string getTitle() const override {
       stringstream ss;
-      ss << getType() << "[" << setfill('0') << setw(2) << beginTime.hour << ":"
-         << setfill('0') << setw(2) << beginTime.minute << ":"
-         << setfill('0') << setw(2) << beginTime.second
-         << "-"
-         << setfill('0') << setw(2) << endTime.hour << ":"
-         << setfill('0') << setw(2) << endTime.minute << ":"
-         << setfill('0') << setw(2) << endTime.second << "]";      
+      ss << getType() << "[";
+      timeAsString(beginTime,ss);
+      ss << "-";
+      timeAsString(endTime,ss);
+      ss << "]";      
       return ss.str();
+    }
+
+    virtual void printVerboseExtra(json::JsonStreamWriter& w) const override {
+      w.printlnStringObj(F("beginTime"),timeAsString(beginTime),",");
+      w.printlnStringObj(F("endTime"),timeAsString(endTime),",");
     }
   };
 

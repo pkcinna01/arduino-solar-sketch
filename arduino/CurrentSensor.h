@@ -125,54 +125,42 @@ public:
     }
   }
 
- void print(JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const override {
-    if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
-    w.increaseDepth();
-    w.printlnStringObj(F("name"), name, ",");
-    w.printlnStringObj(F("id"), id, ",");
-    if ( bVerbose ) {
-      String strChannel;
-      switch (channel) {
-        case CHANNEL_A0: strChannel = "CHANNEL_A0"; break;
-        case CHANNEL_A1: strChannel = "CHANNEL_A1"; break;
-        case CHANNEL_A2: strChannel = "CHANNEL_A2"; break;
-        case CHANNEL_A3: strChannel = "CHANNEL_A3"; break;
-        case DIFFERENTIAL_0_1: strChannel = "DIFFERENTIAL_0_1"; break;
-        case DIFFERENTIAL_2_3: strChannel = "DIFFERENTIAL_2_3"; break;
-        default:
-        strChannel = "Invalid: " + channel;
-      }
-      w.printlnStringObj(F("channel"), strChannel,",");
-      int16_t shuntADC = readADC(50);
-      w.printlnNumberObj(F("adc"), shuntADC, ",");
-      String strGain;
-      switch (gain) {
-        case GAIN_ONE: strGain = "GAIN_ONE"; break;
-        case GAIN_TWO: strGain = "GAIN_TWO"; break;
-        case GAIN_FOUR: strGain = "GAIN_FOUR"; break;
-        case GAIN_EIGHT: strGain = "GAIN_EIGHT"; break;
-        case GAIN_SIXTEEN: strGain = "GAIN_SIXTEEN"; break;
-        case GAIN_TWOTHIRDS: 
-        default:  strGain = "GAIN_TWOTHIRDS";
-      };
-      w.printlnStringObj(F("gain"), strGain, ",");
-      char buffer[20];
-      dtostrf(getMilliVoltIncrement(), 2, 8, buffer);
-      w.printlnStringObj(F("millivoltIncrement"),buffer,",");
-      w.printlnNumberObj(F("ratedAmps"), ratedAmps, ",");
-      w.printlnNumberObj(F("ratedMilliVolts"), ratedMilliVolts,",");
-      
-      double ohms = getRatedMilliOhms()/1000.0;
-      dtostrf(ohms, 2, 8, buffer);
-      w.printlnStringObj(F("ratedResistance"), buffer,",");
-      w.printKey(F("status"));
-      status.noPrefixPrint(w,bVerbose);
-      w.noPrefixPrintln(",");    
+  void printVerboseExtra(JsonStreamWriter& w) const override {
+    String strChannel;
+    switch (channel) {
+      case CHANNEL_A0: strChannel = F("CHANNEL_A0"); break;
+      case CHANNEL_A1: strChannel = F("CHANNEL_A1"); break;
+      case CHANNEL_A2: strChannel = F("CHANNEL_A2"); break;
+      case CHANNEL_A3: strChannel = F("CHANNEL_A3"); break;
+      case DIFFERENTIAL_0_1: strChannel = F("DIFFERENTIAL_0_1"); break;
+      case DIFFERENTIAL_2_3: strChannel = F("DIFFERENTIAL_2_3"); break;
+      default:
+      strChannel = F("Invalid: ");
+      strChannel += channel;
     }
-    w.printlnNumberObj(F("value"), getValue());
-
-    w.decreaseDepth();
-    w.print("}");
+    w.printlnStringObj(F("channel"), strChannel,",");
+    int16_t shuntADC = readADC(50);
+    w.printlnNumberObj(F("shuntADC"), shuntADC, ",");
+    String strGain;
+    switch (gain) {
+      case GAIN_ONE: strGain = F("GAIN_ONE"); break;
+      case GAIN_TWO: strGain = F("GAIN_TWO"); break;
+      case GAIN_FOUR: strGain = F("GAIN_FOUR"); break;
+      case GAIN_EIGHT: strGain = F("GAIN_EIGHT"); break;
+      case GAIN_SIXTEEN: strGain = F("GAIN_SIXTEEN"); break;
+      case GAIN_TWOTHIRDS: 
+      default:  strGain = F("GAIN_TWOTHIRDS");
+    };
+    w.printlnStringObj(F("gain"), strGain, ",");
+    char buffer[20];
+    dtostrf(getMilliVoltIncrement(), 2, 8, buffer);
+    w.printlnNumberObj(F("millivoltIncrement"),buffer,",");
+    w.printlnNumberObj(F("ratedAmps"), ratedAmps, ",");
+    w.printlnNumberObj(F("ratedMilliVolts"), ratedMilliVolts,",");
+    
+    double ohms = getRatedMilliOhms()/1000.0;
+    dtostrf(ohms, 2, 8, buffer);
+    w.printlnNumberObj(F("ratedResistance"), buffer,",");
   }
 
 };

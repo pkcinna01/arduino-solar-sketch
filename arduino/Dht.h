@@ -39,7 +39,8 @@ class Dht : public DHT {
       rtn = readTemperature(FAHRENHEIT);      
     }
     if ( isnan(rtn) ) {
-      status.error( String(__PRETTY_FUNCTION__) + " returned NaN after " + RETRY_COUNT + " tries");
+      String errMsg = F("Dht::readTemp() returned NaN");
+      status.error(errMsg) ;
       rtn = FAIL_VALUE;
     }
     return rtn;
@@ -54,7 +55,8 @@ class Dht : public DHT {
       rtn = DHT::readHumidity();
     }
     if ( isnan(rtn) ) {
-      status.error( String(__PRETTY_FUNCTION__) + " returned NaN after " + RETRY_COUNT + " tries");
+      String errMsg = F("Dht::readHumidity() returned NaN");
+      status.error(errMsg);
       rtn = FAIL_VALUE;
     }
     return rtn;

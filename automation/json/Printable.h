@@ -22,18 +22,25 @@ struct Printable
     print(w, false);
   }
 
-  void printVerbose(int depth = 0) const
-  {
-    JsonSerialWriter w(depth);
-    print(w, true);
-  }
-
-  void noPrefixPrint(JsonStreamWriter &w, bool bVerbose = false) const
-  {
-    print(w, true, false);
-  }
-
   virtual void print(JsonStreamWriter &w, bool bVerbose = false, bool bIncludePrefix = true) const = 0;
+
+  template<typename TKey>
+  Printable& printObj(JsonStreamWriter &w, TKey k, const char* suffix = "", bool bVerbose = false )
+  {     
+    w.printKey(k);
+    print(w,bVerbose,false);
+    w.noPrefixPrint(suffix);
+    return *this;
+  }
+
+  template<typename TKey>
+  Printable& printlnObj(JsonStreamWriter &w, TKey k, const char* suffix = "", bool bVerbose = false )
+  {     
+    printObj(w,k,suffix,bVerbose);
+    w.println();
+    return *this;
+  }
+
 };
 
 } // namespace json

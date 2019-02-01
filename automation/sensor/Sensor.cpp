@@ -53,21 +53,15 @@ namespace automation {
     w.printlnStringObj(F("name"), name, ",");
     w.printlnNumberObj(F("id"), (unsigned long) id, ",");
     if ( bVerbose ) {
-      w.printKey(F("sensors"));
-      w.noPrefixPrintln("[");
-      bool bFirst = true;
-      for (Sensor *s : sensors) {
-        if (bFirst) {
-          bFirst = false;
-        } else {
-          w.noPrefixPrintln(",");
-        }
-        w.increaseDepth();
-        s->print(w,bVerbose,true);
-        w.decreaseDepth();
-      }
-      w.noPrefixPrintln("");
-      w.println("],");
+      w.printlnStringObj(F("type"),getType(),",");
+      w.printlnVectorObj(F("sensors"),sensors,",");
+      string strValFn;
+      if ( getValueFn == Sensor::average ) strValFn = RVSTR("average");
+      else if ( getValueFn == Sensor::minimum ) strValFn = RVSTR("minimum");
+      else if ( getValueFn == Sensor::maximum ) strValFn = RVSTR("maximum");
+      else if ( getValueFn == Sensor::delta ) strValFn = RVSTR("delta");
+      else strValFn = RVSTR("custom");
+      w.printlnStringObj(F("function"),strValFn,",");
     }
     w.printlnNumberObj(F("value"), getValue());
     w.decreaseDepth();

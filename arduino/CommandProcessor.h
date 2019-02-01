@@ -142,7 +142,7 @@ namespace arduino {
         respCode = executeLine(pszCmd,bVerbose);
       } else {
         beginResp() + F("Expected {GET|INCLUDE|EXCLUDE|SET|SETUP|RESET|VERBOSE} but found: ") + (pszCmdName?pszCmdName:"");
-        endResp(INVALID_CMD_ARGUMENT);
+        endResp(INVALID_ARGUMENT);
       }
       return respCode;
     }
@@ -160,22 +160,26 @@ namespace arduino {
 
       writer.println("{").increaseDepth();
 
+      const char* pszNamePattern = strtok(NULL,"\r\n");
+      AttributeContainerVector<AttributeContainer*> filteredVec;
+
       if (!strcasecmp_P(pszArg, PSTR("SENSORS"))) {
-        const char* pszNamePattern = strtok(NULL,"\r\n");
-        Sensors filteredSensors;
-        sensors.findByTitleLike(pszNamePattern,filteredSensors,bInclude);
-        writer.printlnVectorObj(F("sensors"), filteredSensors, ",",bVerbose);
+        sensors.findByTitleLike(pszNamePattern,filteredVec,bInclude);
       } else if (!strcasecmp_P(pszArg, PSTR("DEVICES"))) {
-        const char* pszNamePattern = strtok(NULL,"\r\n");
-        Devices filteredDevices;
-        devices.findByTitleLike(pszNamePattern,filteredDevices,bInclude);
-        writer.printlnVectorObj(F("devices"), filteredDevices, ",",bVerbose);
+        devices.findByTitleLike(pszNamePattern,filteredVec,bInclude);
+      } else if (!strcasecmp_P(pszArg, PSTR("CONSTRAINTS"))) {
+        Constraints(Constraint::all()).findByTitleLike(pszNamePattern,filteredVec,bInclude);
+      } else if (!strcasecmp_P(pszArg, PSTR("CAPABILITIES"))) {
+        Capabilities(Capability::all()).findByTitleLike(pszNamePattern,filteredVec,bInclude);
       } else {
         beginResp();
-        writer + F("FILTER command expected {SENSORS|DEVICES} but found: '") + pszArg + "'.";
-        respCode = INVALID_CMD_ARGUMENT;
+        writer + F("FILTER command expected {SENSORS|DEVICES|CONSTRAINTS|CAPABILITIES} but found: '") + pszArg + "'.";
+        respCode = INVALID_ARGUMENT;
       }
       if (!respCode) {
+        String key(pszArg);
+        key.toLowerCase();
+        writer.printlnVectorObj(key, filteredVec, ",", bVerbose);
         beginResp();
         writer + "OK";
       }
@@ -203,30 +207,33 @@ namespace arduino {
           writer.printKey(F("env"));
           writer.noPrefixPrintln("{");
           writer.increaseDepth();
-          writer.printlnStringObj(F("release"), VERSION, ",")
+          writer.printlnStringObj(F("version"), VERSION, ",")
               .printlnNumberObj(F("buildNumber"), BUILD_NUMBER, ",")
               .printlnStringObj(F("buildDate"), BUILD_DATE, ",")
-              .printlnStringObj(F("Vcc"), readVcc(), ",");
+              .printlnStringObj(F("vcc"), readVcc(), ",");
           writer.beginStringObj(F("time"));
           time_t t = now();
           writer + year(t) + "-" + month(t) + "-" + day(t) + " " + hour(t) + ":" + minute(t) + ":" + second(t);
           writer.endStringObj();
           writer.noPrefixPrintln(",");
-          writer.printlnStringObj("timeSet", timeStatus() == timeSet ? "YES" : "NO");
+          writer.printlnStringObj("timeSet", timeStatus() == timeSet ? "true" : "false");
           writer.decreaseDepth();
           writer.println("},");
         } else if (!strcasecmp_P(pszArg, PSTR("SETUP")) || !strcasecmp_P(pszArg, PSTR("EEPROM"))) {
           writer.printKey(F("eeprom"));
           eeprom.noPrefixPrint(writer);
           writer.noPrefixPrintln(",");
-        } else if (!strcasecmp_P(pszArg, PSTR("OUTPUT_FORMAT"))) {
-          writer.printlnStringObj(F("outputFormat"), formatAsString(jsonFormat).c_str(), ",");
-        } else if (!strcasecmp_P(pszArg, PSTR("SENSOR")) || !strcasecmp_P(pszArg, PSTR("DEVICE")) || !strcasecmp_P(pszArg, PSTR("CONSTRAINT"))) {
+        } else if (!strcasecmp_P(pszArg, PSTR("JSON_FORMAT"))) {
+          writer.printlnStringObj(F("jsonFormat"), formatAsString(jsonFormat).c_str(), ",");
+        } else if (!strcasecmp_P(pszArg, PSTR("SENSOR")) 
+                || !strcasecmp_P(pszArg, PSTR("DEVICE")) 
+                || !strcasecmp_P(pszArg, PSTR("CAPABILITY")) 
+                || !strcasecmp_P(pszArg, PSTR("CONSTRAINT"))) {
           const char* pszId = strtok(NULL, ",\r\n");
           if ( !pszId ) {
               beginResp();
               writer + F("ID required for GET of single ") + pszArg + ".";
-              respCode = INVALID_CMD_ARGUMENT;
+              respCode = INVALID_ARGUMENT;
           } else {
             long id = atol(pszId);
             string automationType(pszArg);
@@ -236,11 +243,13 @@ namespace arduino {
               sensors.findById(id,singletonVec);
             } else if( !strcasecmp_P(pszArg, PSTR("CONSTRAINT")) ) {
               Constraints(Constraint::all()).findById(id,singletonVec);
+            } else if( !strcasecmp_P(pszArg, PSTR("CAPABILITY")) ) {
+              Capabilities(Capability::all()).findById(id,singletonVec);
             } else if( !strcasecmp_P(pszArg, PSTR("DEVICE")) ) {
               devices.findById(id,singletonVec);
             }
             if ( singletonVec.size() == 1 ) {
-              writer.printlnVectorObj( automationType.c_str(), singletonVec, ",",bVerbose);
+              singletonVec[0]->printlnObj( writer, automationType.c_str(), ",", bVerbose);
             } else {
               beginResp();
               if ( atol(pszId) > NumericIdentifierMax ) {
@@ -248,15 +257,17 @@ namespace arduino {
               } else {
                 writer + F("Expected one ") + pszArg + F(" for ID '") + pszId + F("' but found ") + singletonVec.size();
               }
-              respCode = NO_NAME_MATCHES;
+              respCode = INVALID_RESULT;
             }
           }
-        } else if (!strcasecmp_P(pszArg, PSTR("CONSTRAINTS"))) {
-          writer.printlnVectorObj(F("constraints"), Constraint::all(), ",",bVerbose);
         } else if (!strcasecmp_P(pszArg, PSTR("SENSORS"))) {
           writer.printlnVectorObj(F("sensors"), sensors, ",",bVerbose);
         } else if (!strcasecmp_P(pszArg, PSTR("DEVICES"))) {
           writer.printlnVectorObj(F("devices"), devices, ",",bVerbose);
+        } else if (!strcasecmp_P(pszArg, PSTR("CONSTRAINTS"))) {
+          writer.printlnVectorObj(F("constraints"), Constraint::all(), ",",bVerbose);
+        } else if (!strcasecmp_P(pszArg, PSTR("CAPABILITIES"))) {
+          writer.printlnVectorObj(F("capabilities"), Capability::all(), ",",bVerbose);
         } else if (!strcasecmp_P(pszArg, PSTR("TIME"))) {
           time_t t = now();
           writer.printKey("time");
@@ -273,8 +284,8 @@ namespace arduino {
           writer.println("},");
         } else {
           beginResp();
-          writer + F("GET command expected {SENSORS|DEVICES|OUTPUT_FORMAT|TIME|ENV|SETUP} but found: '") + pszArg + "'.";
-          respCode = INVALID_CMD_ARGUMENT;
+          writer + F("GET command expected {SENSORS|DEVICES|JSON_FORMAT|TIME|ENV|SETUP} but found: '") + pszArg + "'.";
+          respCode = INVALID_ARGUMENT;
           break;
         }        
       } while ((pszArg=strtok(NULL, ", ")) != nullptr);
@@ -302,7 +313,7 @@ namespace arduino {
 
       const char *pszArg = strtok(NULL, ", ");
 
-      if (!strcasecmp_P(pszArg, PSTR("OUTPUT_FORMAT"))) {
+      if (!strcasecmp_P(pszArg, PSTR("JSON_FORMAT"))) {
 
         const char *pszFormat = strtok(NULL, ", \r\n");
         JsonFormat fmt = parseFormat(pszFormat);
@@ -328,7 +339,7 @@ namespace arduino {
         const char* pszSecond = strtok(NULL, ", ");
         if ( !pszYear || !pszMonth || !pszDay || !pszHour || !pszMinute || !pszSecond ) {
           writer + F("Expected date in YYYY,MM,DD,HH,mm,SS format.");
-          respCode = INVALID_CMD_ARGUMENT;
+          respCode = INVALID_ARGUMENT;
         } else {
           int year = atoi(pszYear), month = atoi(pszMonth), day = atoi(pszDay),
               hour = atoi(pszHour), minute = atoi(pszMinute), second = atoi(pszSecond);
@@ -338,9 +349,12 @@ namespace arduino {
             writer + i + ",";
           }
         }
-      } else if (!strcasecmp_P(pszArg, PSTR("DEVICES")) || !strcasecmp_P(pszArg, PSTR("SENSORS")) || !strcasecmp_P(pszArg, PSTR("CONSTRAINTS")) ) {
+      } else if (!strcasecmp_P(pszArg, PSTR("DEVICES")) 
+              || !strcasecmp_P(pszArg, PSTR("SENSORS")) 
+              || !strcasecmp_P(pszArg, PSTR("CAPABILITIES"))
+              || !strcasecmp_P(pszArg, PSTR("CONSTRAINTS")) ) {
         const char *pszName = strtok(NULL, ",\r\n");
-        const char *pszKey = strtok(NULL, ", \r\n");  // ex: "CAPABILITY/TOGGLE","MODE","NAME",etc...
+        const char *pszKey = strtok(NULL, ", \r\n");  
         const char *pszVal = strtok(NULL, ", \r\n");
         SetCode rtn = SetCode::Ignored;
         AttributeContainerVector<AttributeContainer*> filteredVec;
@@ -349,6 +363,8 @@ namespace arduino {
           devices.findByTitleLike(pszName,filteredVec);
         } else if ( !strcasecmp_P(pszArg, PSTR("CONSTRAINTS")) ) {
           Constraints(Constraint::all()).findByTitleLike(pszName,filteredVec);
+        } else if ( !strcasecmp_P(pszArg, PSTR("CAPABILITIES")) ) {
+          Capabilities(Capability::all()).findByTitleLike(pszName,filteredVec);
         } else {
           sensors.findByTitleLike(pszName,filteredVec);
         }
@@ -362,16 +378,19 @@ namespace arduino {
           writer + ss.str();
         } else if (filteredVec.empty()) {
           writer + F("No matches for ") + pszArg + F(" with name matching '") + pszName + F("'");
-          respCode = NO_NAME_MATCHES;
+          respCode = NOT_FOUND;
         } else {
           writer + pszArg + F(" set '") + pszKey + F("' failed.");
           string reason = ss.str().c_str();
           if ( !reason.empty() ) {
             writer + " " + reason;
           }
-          respCode = NO_NAME_MATCHES;
+          respCode = CMD_ERROR;
         }
-      } else if (!strcasecmp_P(pszArg, PSTR("DEVICE")) || !strcasecmp_P(pszArg, PSTR("SENSOR")) || !strcasecmp_P(pszArg, PSTR("CONSTRAINT")) ) {
+      } else if (!strcasecmp_P(pszArg, PSTR("DEVICE")) 
+              || !strcasecmp_P(pszArg, PSTR("SENSOR")) 
+              || !strcasecmp_P(pszArg, PSTR("CAPABILITY"))
+              || !strcasecmp_P(pszArg, PSTR("CONSTRAINT")) ) {
         const char *pszId = strtok(NULL, ",\r\n");
         const char *pszKey = strtok(NULL, ", \r\n");  // ex: "CAPABILITY/TOGGLE","MODE","NAME",etc...
         const char *pszVal = strtok(NULL, ", \r\n");
@@ -381,6 +400,8 @@ namespace arduino {
         AttributeContainerVector<AttributeContainer*> filteredVec;
         if ( !strcasecmp_P(pszArg, PSTR("DEVICE")) ) {
           devices.findById(id,filteredVec);
+        } else if ( !strcasecmp_P(pszArg, PSTR("CAPABILITY")) ) {
+          Capabilities(Capability::all()).findById(id,filteredVec);
         } else if ( !strcasecmp_P(pszArg, PSTR("CONSTRAINT")) ) {
           Constraints(Constraint::all()).findById(id,filteredVec);
         } else {
@@ -396,18 +417,18 @@ namespace arduino {
           writer + ss.str().c_str();
         } else if (filteredVec.empty()) {
           writer + F("No matches for ") + pszArg + F(" with ID = '") + pszId + F("'");
-          respCode = NO_NAME_MATCHES;
+          respCode = NOT_FOUND;
         } else {
           writer + pszArg + F(" set '") + pszKey + F("' failed.");
           string reason = ss.str().c_str();
           if ( !reason.empty() ) {
             writer + " " + reason;
           }
-          respCode = NO_NAME_MATCHES;
+          respCode = CMD_ERROR;
         }
       } else {
         writer + F("Expected TIME_T|TIME|DEVICE|SENSOR|CONSTRAINT|DEVICES|SENSORS|CONSTRAINTS|SETUP but found: ") + pszArg;
-        respCode = INVALID_CMD_ARGUMENT;
+        respCode = INVALID_ARGUMENT;
       }
       endResp(respCode);
 
@@ -434,14 +455,14 @@ namespace arduino {
 
       if (!strcasecmp_P(pszAction, PSTR("SET"))) {  
         const char *pszField = strtok(NULL,", ");
-        if ( !strcasecmp_P(pszField, PSTR("OUTPUT_FORMAT"))) {
+        if ( !strcasecmp_P(pszField, PSTR("JSON_FORMAT"))) {
           const char *pszFormat = strtok(NULL, ", \r\n");
           JsonFormat fmt = parseFormat(pszFormat);
           if ( fmt != JSON_FORMAT_INVALID ) {
             eeprom.setJsonFormat(fmt);
           } else {
             writer + F("Expected JSON_COMPACT|JSON_PRETTY but found: ") + pszFormat;
-            respCode = INVALID_CMD_ARGUMENT;
+            respCode = INVALID_ARGUMENT;
           }
         } else if ( !strcasecmp_P(pszField, PSTR("SERIAL_SPEED"))) {
           const char *pszSpeed = strtok(NULL, ", \r\n");
@@ -451,7 +472,7 @@ namespace arduino {
             gLastInfoMsg = F("Serial communication changes require a RESET.");
           } else {
             writer + F("Unsupported serial speed: ") + pszSpeed;
-            respCode = INVALID_CMD_ARGUMENT;
+            respCode = INVALID_ARGUMENT;
           }
         } else if ( !strcasecmp_P(pszField, PSTR("SERIAL_CONFIG"))) {
           const char *pszConfig = strtok(NULL, ", \r\n");
@@ -462,11 +483,11 @@ namespace arduino {
             gLastInfoMsg = F("Serial communication changes require a RESET.");
           } else {
             writer + F("Expected 8N1|8E1|8O1 but found: ") + pszConfig;
-            respCode = INVALID_CMD_ARGUMENT;
+            respCode = INVALID_ARGUMENT;
           }
         } else {
-          writer + F("Expected SET field {OUTPUT_FORMAT|SERIAL_SPEED|SERIAL_CONFIG} but found: ") + pszField;
-          respCode = INVALID_CMD_ARGUMENT;
+          writer + F("Expected SET field {JSON_FORMAT|SERIAL_SPEED|SERIAL_CONFIG} but found: ") + pszField;
+          respCode = INVALID_ARGUMENT;
         }
       } else if (!strcasecmp_P(pszAction, PSTR("ADD"))) {
         const char *pszCmd = strtok(NULL,"\r\n");
@@ -529,7 +550,7 @@ namespace arduino {
         }
       } else {
         writer + F("SETUP expected {RUN|SET|ADD|INSERT_AT|REPLACE|REPLACE_OR_ADD|REPLACE_AT|REMOVE|REMOVE_ALL|REMOVE_AT} but found: '") + pszAction + "'.";
-        respCode = INVALID_CMD_ARGUMENT;
+        respCode = INVALID_ARGUMENT;
       }
       endResp(respCode);
       

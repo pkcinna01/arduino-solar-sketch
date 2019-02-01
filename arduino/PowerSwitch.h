@@ -12,7 +12,7 @@ namespace arduino {
 
     RTTI_GET_TYPE_IMPL(arduino,PowerSwitch)
 
-    int relayPin;
+    unsigned char relayPin;
     bool onValue;
 
     PowerSwitch(const string &name, int relayPin, bool onValue=true) :
@@ -41,8 +41,7 @@ namespace arduino {
     }
 
     void printVerboseExtra(JsonStreamWriter& w) const {
-      w.noPrefixPrintln(",");      
-      w.printlnNumberObj(F("relayPin"),relayPin);
+      w.printlnNumberObj(F("relayPin"),(int)relayPin,",");
     }
 
   };

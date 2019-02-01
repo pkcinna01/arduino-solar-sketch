@@ -101,7 +101,10 @@ namespace automation {
           rtn = SetCode::OK;
         } else {
           if (pRespStream) {
-          (*pRespStream) << RVSTR("Not a valid mode: ") << pszVal;
+            if (pRespStream->rdbuf()->in_avail()) {
+              (*pRespStream) << ", ";
+            }
+            (*pRespStream) << RVSTR("Not a valid mode: ") << pszVal;
           }
           rtn = SetCode::Error;
         }
@@ -127,6 +130,9 @@ namespace automation {
         rtn = SetCode::OK;
       }
       if (pRespStream && rtn == SetCode::OK ) {
+        if (pRespStream->rdbuf()->in_avail()) {
+          (*pRespStream) << ", ";
+        }
         (*pRespStream) << "'" << getTitle() << "' " << pszKey << "=" << strResultValue;
       }
     }

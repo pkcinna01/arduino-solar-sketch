@@ -60,8 +60,6 @@ namespace automation {
       }
     }
 
-    static NumericIdentifierValue idGenerator;
-
     // access constraints without having to traverse all devices and nested constraints
     static std::set<Constraint*>& all(){
       static std::set<Constraint*> all;
@@ -132,8 +130,6 @@ namespace automation {
     }
     
     bool isPassed() const { return bPassed; };
-
-    virtual void printVerboseExtra(json::JsonStreamWriter& w) const {}
 
     void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const override;
 

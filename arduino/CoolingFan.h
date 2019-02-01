@@ -40,13 +40,12 @@ namespace arduino {
     }
 
     void printVerboseExtra(JsonStreamWriter& w) const {
-      w.noPrefixPrintln(",");
       w.printlnNumberObj(F("relayPin"),relayPin,",");
       w.printlnNumberObj(F("onValue"),onValue,",");
       w.printlnNumberObj(F("onTemp"),minTemp.pThreshold->getValue() + minTemp.getPassMargin(),",");
       w.printlnNumberObj(F("offTemp"),minTemp.pThreshold->getValue() - minTemp.getFailMargin(),",");
       w.printlnNumberObj(F("minDurationMs"),minTemp.getFailDelayMs(),",");
-      w.printlnNumberObj(F("currentTemp"),tempSensor.getValue());
+      w.printlnNumberObj(F("currentTemp"),tempSensor.getValue(),",");
     }
   };
 

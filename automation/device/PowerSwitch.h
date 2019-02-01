@@ -22,9 +22,10 @@ namespace automation {
           //cout << __PRETTY_FUNCTION__ << endl;
           return (double) pPowerSwitch->isOn();
         }
-        void setValueImpl(double val) override {
-          //cout << __PRETTY_FUNCTION__ << endl;
+        bool setValueImpl(double val) override {
+          //cout << __PRETTY_FUNCTION__ << "=" << val << endl;
           pPowerSwitch->setOn(val!=0);
+          return true;
         }
       } toggle;
 

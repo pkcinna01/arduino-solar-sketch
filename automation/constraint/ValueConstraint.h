@@ -34,6 +34,22 @@ namespace automation {
 
   };
 
+
+  template<typename ValueT>
+  class ConstantValueHolder : public ValueHolder<ValueT>  {
+  public:
+    ValueT val;
+    
+    ConstantValueHolder(ValueT val)
+      : val(val) {
+    }
+    
+    ValueT getValue() const override {
+      return val;
+    }
+  };
+
+
   template<typename ValueT, typename ValueSourceT>
   class RangeConstraint : public ValueConstraint<ValueT,ValueSourceT> {
   public:
@@ -97,20 +113,6 @@ namespace automation {
     }
   };
 
-
-  template<typename ValueT>
-  class ConstantValueHolder : public ValueHolder<ValueT>  {
-  public:
-    ValueT val;
-    
-    ConstantValueHolder(ValueT val)
-      : val(val) {
-    }
-    
-    ValueT getValue() const override {
-      return val;
-    }
-  };
 
   template<typename ValueT, typename ValueSourceT>
   class ThresholdValueConstraint : public ValueConstraint<ValueT,ValueSourceT> {

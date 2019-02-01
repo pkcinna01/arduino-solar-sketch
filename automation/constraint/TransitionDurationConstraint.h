@@ -14,7 +14,7 @@ class TransitionDurationConstraint : public Constraint {
     
     unsigned long minIntervalMs;
 
-  TransitionDurationConstraint(unsigned int minIntervalMs, Capability* pCapability, double originValue, double destinationValue, double defaultValue = NAN) :
+  TransitionDurationConstraint(unsigned long minIntervalMs, Capability* pCapability, double originValue, double destinationValue, double defaultValue = NAN) :
         minIntervalMs(minIntervalMs), pCapability(pCapability), originValue(originValue), destinationValue(destinationValue){
       lastValue = isnan(defaultValue) ? originValue : defaultValue;
     }
@@ -46,8 +46,16 @@ class TransitionDurationConstraint : public Constraint {
 
     string getTitle() const override {
       stringstream ss;
-      ss << "TransitionDuration(" << minIntervalMs << "," << pCapability->getTitle() << " " << originValue << "-->" << destinationValue << ")";
+      ss << "TransitionDuration(" << minIntervalMs << ',' << pCapability->getTitle() << " " << originValue << "-->" << destinationValue << ")";
       return ss.str();
+    }
+
+    virtual void printVerboseExtra(json::JsonStreamWriter& w) const override {
+      w.printlnNumberObj(F("minIntervalMs"),minIntervalMs,",");
+      w.printlnNumberObj(F("originValue"),originValue,",");
+      w.printlnNumberObj(F("destinationValue"),destinationValue,",");
+      w.printlnNumberObj(F("lastValue"),lastValue,",");
+      w.printlnNumberObj(F("elapsedMs"),millisecs()-stateStartTimeMs,",");
     }
 
   protected:

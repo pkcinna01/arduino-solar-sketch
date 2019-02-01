@@ -48,25 +48,10 @@ public:
     return vin;
   }
 
-  void print(JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const override {
-   float assignedVcc = vcc;
-    float assignedR1 = r1;
-    float assignedR2 = r2;
-
-    if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
-    
-    w.increaseDepth();
-    w.printlnStringObj(F("name"), name, ",");
-    w.printlnStringObj(F("id"), id, ",");
-    if ( bVerbose ) {
-      w.printlnNumberObj(F("analogPin"), sensorPin, ",");
-      w.printlnNumberObj(F("assignedVcc"), assignedVcc, ",");
-      w.printlnNumberObj(F("assignedR1"), assignedR1, ",");
-      w.printlnNumberObj(F("assignedR2"), assignedR2, ",");
-    }
-    w.printlnNumberObj(F("value"), getValue());
-    w.decreaseDepth();
-    w.print("}");
+  void printVerboseExtra(JsonStreamWriter& w) const override {
+    w.printlnNumberObj(F("vcc"), vcc, ",");
+    w.printlnNumberObj(F("r1"), r1, ",");
+    w.printlnNumberObj(F("r2"), r2, ",");
   }
 
 };

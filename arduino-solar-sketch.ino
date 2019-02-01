@@ -55,25 +55,23 @@ ThermistorSensor charger1Temp("Charger 1 Temp", 0),
                  atticTemp("Attic Temp", 3),
                  inverterTemp("Inverter Temp", 4);
 
-LightSensor lightLevel("Sunshine Level", 5);
+LightSensor lightLevel("Sunshine", 5);
 
 Dht dht(5);
 DhtTempSensor enclosureTempDht("Enclosure Temp (DHT)", dht);
 ThermistorSensor enclosureTemp("Enclosure Temp", 6);
 DhtHumiditySensor enclosureHumidityDht("Enclosure Humidity", dht);
 VoltageSensor batteryBankVoltage("Battery Bank Voltage", 9, 1016000, 101100);
-VoltageSensor batteryBankBVoltage("Battery Bank B Voltage", 10, 1016000, 101100);
+VoltageSensor batteryBankBVoltage("Bank B Voltage", 10, 1016000, 101100);
 vector<Sensor*> mainAndBankBDelta { &batteryBankVoltage, &batteryBankBVoltage };
-CompositeSensor batteryBankAVoltage("Battery Bank A Voltage", mainAndBankBDelta, Sensor::delta);
-CurrentSensor batteryBankCurrent("Battery Bank Current");
+CompositeSensor batteryBankAVoltage("Bank A Voltage", mainAndBankBDelta, Sensor::delta);
+CurrentSensor batteryBankCurrent("Bank Current");
 PowerSensor batteryBankPower("Battery Bank Power", &batteryBankVoltage, &batteryBankCurrent);
 vector<Sensor*> chargerGrpSensors { &charger1Temp, &charger2Temp };
 CompositeSensor chargerGroupTemp("Charger Group Temp", chargerGrpSensors, Sensor::maximum);
 
-//TimeRangeConstraint chargerGroupFanEnabledTimeRange( { 8, 0, 0 }, { 18, 30, 0 } );
-
-arduino::CoolingFan exhaustFan("Enclosure Exhaust Fan", 22, enclosureTemp, 95, 90, LOW);
-arduino::CoolingFan chargerGroupFan("Charger Group Fan", 23, chargerGroupTemp, 110, 105, LOW);
+arduino::CoolingFan exhaustFan("Enclosure Fan", 22, enclosureTemp, 95, 90, LOW);
+arduino::CoolingFan chargerGroupFan("Chargers Fan", 23, chargerGroupTemp, 110, 105, LOW);
 arduino::CoolingFan inverterFan("Inverter Fan", 24, inverterTemp, 110, 105, LOW);
 
 struct MinBatteryBankVoltage : AtLeast<float, Sensor&> {
@@ -103,7 +101,7 @@ struct BatteryBankSwitch : public arduino::PowerSwitch {
     setConstraint(&defaultOff);
   }
   RTTI_GET_TYPE_IMPL(main, BatteryBankSwitch)
-} batteryBankASwitch("Battery Bank A Switch", 26), batteryBankBSwitch("Battery Bank B Switch", 27);
+} batteryBankASwitch("Bank A Switch", 26), batteryBankBSwitch("Bank B Switch", 27);
 
 struct OutletSwitch : public arduino::PowerSwitch {
   AndConstraint constraints { {&outletsMinSteadySupplyVoltage, &outletsMinDipSupplyVoltage} };
@@ -115,11 +113,11 @@ struct OutletSwitch : public arduino::PowerSwitch {
 };
 
 struct Outlet1Switch : public OutletSwitch {
-  Outlet1Switch() : OutletSwitch("Outlet 1 Switch", 30) {}
+  Outlet1Switch() : OutletSwitch("Outlet 1", 30) {}
 } outlet1Switch;
 
 struct Outlet2Switch : public OutletSwitch {
-  Outlet2Switch() : OutletSwitch("Outlet 2 Switch", 31) {}
+  Outlet2Switch() : OutletSwitch("Outlet 2", 31) {}
 } outlet2Switch;
 
 
@@ -221,7 +219,8 @@ void loop() {
   if ( cmdReady && strlen(commandBuff) || (currentTimeMs - lastUpdateTimeMs) > updateIntervalMs )
   {
     for (Device* pDevice : devices) {
-      pDevice->applyConstraint(false);
+      bool bIgnoreSameResult = true; // only update relays and switches when constraint state changes
+      pDevice->applyConstraint(bIgnoreSameResult);
     }
     lastUpdateTimeMs = currentTimeMs;
   } else if ( beginCmdReadTimeMs > 0 && (currentTimeMs - beginCmdReadTimeMs) > updateIntervalMs ) {

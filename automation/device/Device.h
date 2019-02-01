@@ -35,8 +35,6 @@ namespace automation {
 
     virtual void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const override;
 
-    virtual void printVerboseExtra(json::JsonStreamWriter& w) const { w.noPrefixPrintln(""); };
-
     virtual Constraint* getConstraint() {
       return pConstraint;
     }

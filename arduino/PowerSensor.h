@@ -11,7 +11,7 @@ namespace arduino {
 
   const PowerSensorMember POWER_METER_MEMBER_INVALID = -1, POWER_METER_MEMBER_VCC = 0, POWER_METER_MEMBER_R1 = 1, POWER_METER_MEMBER_R2 = 2;
 
-  class PowerSensor : public ArduinoSensor {
+  class PowerSensor : public Sensor {
   public:
     RTTI_GET_TYPE_IMPL(arduino,PowerSensor)
   
@@ -19,12 +19,12 @@ namespace arduino {
     CurrentSensor *pCurrentSensor;
 
     PowerSensor(const char *const name, VoltageSensor *pVoltageSensor, CurrentSensor *pCurrentSensor) :
-        ArduinoSensor(name, 0),
+        Sensor(name),
         pVoltageSensor(pVoltageSensor),
         pCurrentSensor(pCurrentSensor) {
     }
 
-    float getValueImpl() const override {
+    float getValue() const override {
       float watts = pVoltageSensor->getValue() * pCurrentSensor->getValue();
       return watts;
     }
@@ -37,23 +37,9 @@ namespace arduino {
       }
     }
 
-    void print(JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix) const override {
-      if ( bIncludePrefix ) w.println("{"); else w.noPrefixPrintln("{");
- 
-      w.increaseDepth();
-      w.printlnStringObj(F("name"), name, ",");
-      w.printlnStringObj(F("id"), id, ",");
-      if ( bVerbose ) {
-        w.printKey(F("voltage"));
-        pVoltageSensor->print(w,bVerbose,false);
-        w.noPrefixPrintln(",");
-        w.printKey(F("current"));
-        pCurrentSensor->print(w,bVerbose,false);
-        w.noPrefixPrintln(",");
-      }
-      w.printlnNumberObj(F("value"), getValue());
-      w.decreaseDepth();
-      w.print("}");
+    void printVerboseExtra(JsonStreamWriter& w) const override {
+      pVoltageSensor->printlnObj(w,F("voltage"),",",false);
+      pCurrentSensor->printlnObj(w,F("current"),",",false);
     }
   };
 

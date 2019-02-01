@@ -32,8 +32,6 @@ namespace automation {
       bInitialized = true;
     }
   
-    virtual void printVerboseExtra(json::JsonStreamWriter& w) const {}
-
     virtual void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const override;
 
     template<typename ObjectPtr,typename MethodPtr>

@@ -32,6 +32,12 @@ namespace automation {
       title += ")";
       return title;
     }
+
+    virtual void printVerboseExtra(json::JsonStreamWriter& w) const override {
+      w.printlnBoolObj(F("shortCircuit"),bShortCircuit,",");
+      w.printlnStringObj(F("joinName"),strJoinName,",");
+    }
+
   };
 
 }

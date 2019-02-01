@@ -132,7 +132,7 @@ namespace arduino {
       } else if ( index < 0 || index > cmdCnt ) {
         return INDEX_OUT_OF_BOUNDS;
       } else if ( cmdCnt >= CMD_ARR_MAX_ROW_COUNT ) {
-        return EEPROM_CMD_ARRAY_FULL;
+        return ARRAY_FULL;
       }
       setCommandCount(cmdCnt+1);
 
@@ -155,7 +155,7 @@ namespace arduino {
 
     int findCommand(const char* searchPattern) {
       if ( !searchPattern ) {
-        return NULL_SEARCH_PATTERN;
+        return NULL_ARGUMENT;
       }
       size_t cmdCnt = getCommandCount();
       for( int i = 0; i < cmdCnt; i++ ) {
@@ -166,7 +166,7 @@ namespace arduino {
           return i;
         }
       }
-      return EEPROM_CMD_NOT_FOUND;
+      return NOT_FOUND;
     }
 
     int removeCommand(const char* searchPattern, bool bRemoveAllMatches = false) {
@@ -188,11 +188,11 @@ namespace arduino {
 
     int replaceCommand(const char* searchPattern,const char* cmd, bool bAddIfNotFound = false) {
       int index = findCommand(searchPattern);
-      if ( index == EEPROM_CMD_NOT_FOUND) {
+      if ( index == NOT_FOUND) {
         if ( bAddIfNotFound ) {
             return addCommand(cmd);
         } else {
-            return EEPROM_CMD_NOT_FOUND;
+            return NOT_FOUND;
         }
       } else {
         return setCommandAt(index,cmd);
@@ -209,7 +209,7 @@ namespace arduino {
       w.printlnStringObj(F("serialConfig"), Eeprom::serialConfigAsString(getSerialConfig()), ",");
       w.printlnStringObj(F("jsonFormat"), formatAsString(getJsonFormat()).c_str(), ",");
       int cmdCnt = getCommandCount();
-      w.printlnNumberObj(F("commandCount"), cmdCnt, ",");
+      //w.printlnNumberObj(F("commandCount"), cmdCnt, ",");
       w.printKey(F("commands"));
       w.noPrefixPrintln("[");
       w.increaseDepth();

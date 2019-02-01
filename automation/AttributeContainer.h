@@ -38,6 +38,8 @@ namespace automation {
     
     virtual std::string getTitle() const = 0;
 
+    virtual void printVerboseExtra(json::JsonStreamWriter& w) const {}
+
   };
 
 

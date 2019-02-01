@@ -31,23 +31,14 @@ SetCode Device::setAttribute(const char* pszKey, const char* pszVal, ostream* pR
       rtn = pConstraint->setAttribute(pszConstraintKey,pszVal,pRespStream);
       applyConstraint();
     } else if ( !strncasecmp_P(pszKey,PSTR("CAPABILITY/"),CAPABILITY_PREFIX_SIZE) ) {
-      float targetValue = !strcasecmp(pszVal, "ON") ? 1 : !strcasecmp(pszVal, "OFF") ? 0 : atof(pszVal);
       const char* pszTypePattern = &pszKey[CAPABILITY_PREFIX_SIZE];
-      int matchCnt = 0;
       for (auto cap : capabilities) {
         if (text::WildcardMatcher::test(pszTypePattern,cap->getType().c_str())) {
-          cap->setValue(targetValue);
-          matchCnt++;
-          if (pRespStream) {
-            if (pRespStream->rdbuf()->in_avail()) {
-              (*pRespStream) << ", ";
-            }
-            (*pRespStream) << cap->getTitle() << "=" << cap->getValue();
+          SetCode code = cap->setAttribute(RVSTR("value"),pszVal,pRespStream);
+          if ( code != SetCode::Ignored && rtn != SetCode::Error ) {
+            rtn = code;
           }
         }
-      }
-      if ( matchCnt > 0 ) {
-        rtn = SetCode::OK;
       }
     }
   }
@@ -59,17 +50,14 @@ void Device::print(json::JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix
   w.increaseDepth();
   w.printlnStringObj(F("name"),name,",");
   w.printlnNumberObj(F("id"), (unsigned long) id, ",");
-  w.printlnStringObj(F("type"),getType(),",");    
-  w.printKey(F("constraint"));
   if ( bVerbose ) {
+    w.printKey(F("constraint"));
     pConstraint->print(w,bVerbose,json::PrefixOff);
     w.noPrefixPrintln(",");
-    w.printVectorObj(F("capabilities"), capabilities);
+    w.printlnVectorObj(F("capabilities"), capabilities,",", bVerbose);
     printVerboseExtra(w);
-  } else {
-    w.noPrefixPrint("{ \"") + F("state\": ") + (pConstraint->isPassed() ? "PASSED" : "FAILED");
-    w.noPrefixPrintln(" }");
   }    
+  w.printlnStringObj(F("type"),getType());    
   w.decreaseDepth();
   w.print("}");
 }

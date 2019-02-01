@@ -43,12 +43,11 @@ namespace arduino {
 #define CMD_OK 0
 #define CMD_ERROR -1
 #define INDEX_OUT_OF_BOUNDS -2
-#define EEPROM_CMD_ARRAY_FULL -3
-#define EEPROM_CMD_NOT_FOUND -4
-#define INVALID_CMD_ARGUMENT -5
-#define NO_NAME_MATCHES -6
-#define NULL_SEARCH_PATTERN -7
-#define NULL_ARGUMENT -8
+#define ARRAY_FULL -3
+#define NOT_FOUND -4
+#define INVALID_ARGUMENT -5
+#define INVALID_RESULT -6
+#define NULL_ARGUMENT -7
 
 
   String errorDesc( const String& context, int errorCode ) {
@@ -61,17 +60,17 @@ namespace arduino {
       case INDEX_OUT_OF_BOUNDS:
         rtn += F("INDEX_OUT_OF_BOUNDS");
         break;
-      case EEPROM_CMD_ARRAY_FULL:
-        rtn += F("EEPROM_CMD_ARRAY_FULL");
+      case ARRAY_FULL:
+        rtn += F("ARRAY_FULL");
         break;
-      case EEPROM_CMD_NOT_FOUND:
-        rtn += F("EEPROM_CMD_NOT_FOUND");
+      case NOT_FOUND:
+        rtn += F("NOT_FOUND");
         break;
-      case INVALID_CMD_ARGUMENT:
-        rtn += F("INVALID_CMD_ARGUMENT");
+      case INVALID_RESULT:
+        rtn += F("INVALID_RESULT");
         break;
-      case NULL_SEARCH_PATTERN:
-        rtn += F("NULL_SEARCH_PATTERN");
+      case INVALID_ARGUMENT:
+        rtn += F("INVALID_ARGUMENT");
         break;
       case NULL_ARGUMENT:
         rtn += F("NULL_ARGUMENT");
