@@ -46,11 +46,6 @@ namespace automation {
     virtual void setup() = 0;
     
     virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override;
-    
-    friend std::ostream &operator<<(std::ostream &os, const Device &d) {
-      os << F("\"Device\": { \"name\": \"") << d.name << "\" }";
-      return os;
-    }
 
   protected:
     bool bInitialized = false;

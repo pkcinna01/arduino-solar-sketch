@@ -109,11 +109,6 @@ namespace automation {
 
     virtual void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const;
 
-    friend std::ostream &operator<<(std::ostream &os, const Capability &c) {
-      os << c.getTitle() << " = " << text::asString(c.getValue());
-      return os;
-    }
-
   protected:
 
     const Device* pDevice;

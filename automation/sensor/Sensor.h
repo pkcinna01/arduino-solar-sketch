@@ -59,11 +59,6 @@ namespace automation {
     static float maximum(const vector<Sensor*>& sensors);
     static float delta(const vector<Sensor*>& sensors);
 
-    friend std::ostream &operator<<(std::ostream &os, const Sensor &s) {
-      os << F("\"") << s.name << F("\": ") << s.getValue();
-      return os;
-    }
-
   protected:
     bool bInitialized = false;
   };
