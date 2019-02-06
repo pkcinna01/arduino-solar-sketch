@@ -41,13 +41,15 @@ namespace arduino {
 
 
 #define CMD_OK 0
-#define CMD_ERROR -1
-#define INDEX_OUT_OF_BOUNDS -2
-#define ARRAY_FULL -3
-#define NOT_FOUND -4
-#define INVALID_ARGUMENT -5
-#define INVALID_RESULT -6
-#define NULL_ARGUMENT -7
+
+#define CMD_ERROR -500
+#define ARRAY_FULL -507
+
+// client/request errors
+#define INVALID_ARGUMENT -400
+#define NOT_FOUND -404
+#define NULL_ARGUMENT -412
+#define INDEX_OUT_OF_BOUNDS -416
 
 
   String errorDesc( const String& context, int errorCode ) {
@@ -65,9 +67,6 @@ namespace arduino {
         break;
       case NOT_FOUND:
         rtn += F("NOT_FOUND");
-        break;
-      case INVALID_RESULT:
-        rtn += F("INVALID_RESULT");
         break;
       case INVALID_ARGUMENT:
         rtn += F("INVALID_ARGUMENT");

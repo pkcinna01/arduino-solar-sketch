@@ -122,7 +122,7 @@ namespace arduino {
       int respCode = 0;
       //cout << __PRETTY_FUNCTION__ << " command: " << pszCmd << "." << endl;
       char *pszCmdName = strtok(pszCmd, ", ");
-      if (!strcasecmp_P(pszCmdName, PSTR("SETUP"))) {
+      if (!strcasecmp_P(pszCmdName, PSTR("setup")) || !strcasecmp_P(pszCmdName, PSTR("eeprom"))) {
         respCode = processSetupCommand(bVerbose);
       } else if (!strcasecmp_P(pszCmdName, PSTR("RESET"))) {
         arduino::watchdog::resetRequested = true;
@@ -141,7 +141,7 @@ namespace arduino {
         bVerbose = true;
         respCode = executeLine(pszCmd,bVerbose);
       } else {
-        beginResp() + F("Expected {GET|INCLUDE|EXCLUDE|SET|SETUP|RESET|VERBOSE} but found: ") + (pszCmdName?pszCmdName:"");
+        beginResp() + F("Expected {get|include|exclude|set|setup|eeprom|reset|verbose} but found: ") + (pszCmdName?pszCmdName:"");
         endResp(INVALID_ARGUMENT);
       }
       return respCode;
@@ -203,7 +203,7 @@ namespace arduino {
 
       writer.println("{").increaseDepth();
       do {
-        if (!strcasecmp_P(pszArg, PSTR("ENV"))) {
+        if (!strcasecmp_P(pszArg, PSTR("env"))) {
           writer.printKey(F("env"));
           writer.noPrefixPrintln("{");
           writer.increaseDepth();
@@ -219,45 +219,46 @@ namespace arduino {
           writer.printlnStringObj("timeSet", timeStatus() == timeSet ? "true" : "false");
           writer.decreaseDepth();
           writer.println("},");
-        } else if (!strcasecmp_P(pszArg, PSTR("SETUP")) || !strcasecmp_P(pszArg, PSTR("EEPROM"))) {
+        } else if (!strcasecmp_P(pszArg, PSTR("eeprom")) || !strcasecmp_P(pszArg, PSTR("setup"))) {
           writer.printKey(F("eeprom"));
           eeprom.noPrefixPrint(writer);
           writer.noPrefixPrintln(",");
-        } else if (!strcasecmp_P(pszArg, PSTR("JSON_FORMAT"))) {
+        } else if (!strcasecmp_P(pszArg, PSTR("jsonFormat"))) {
           writer.printlnStringObj(F("jsonFormat"), formatAsString(jsonFormat).c_str(), ",");
         } else if (!strcasecmp_P(pszArg, PSTR("SENSOR")) 
                 || !strcasecmp_P(pszArg, PSTR("DEVICE")) 
                 || !strcasecmp_P(pszArg, PSTR("CAPABILITY")) 
                 || !strcasecmp_P(pszArg, PSTR("CONSTRAINT"))) {
-          const char* pszId = strtok(NULL, ",\r\n");
-          if ( !pszId ) {
-              beginResp();
-              writer + F("ID required for GET of single ") + pszArg + ".";
-              respCode = INVALID_ARGUMENT;
+          string automationType(pszArg);
+          std::transform(automationType.begin(), automationType.end(), automationType.begin(), ::tolower);
+          AttributeContainerVector<AttributeContainer*> resultVec;
+          std::vector<unsigned long> ids;
+          const char* pszId;
+          while ( (pszId=strtok(NULL, ",\r\n")) != NULL ) {
+            ids.push_back(atol(pszId));
+          }
+          if ( ids.empty() ) {
+            beginResp();
+            writer + F("ID required for GET of ") + pszArg + ".";
+            respCode = INVALID_ARGUMENT;
           } else {
             long id = atol(pszId);
-            string automationType(pszArg);
-            std::transform(automationType.begin(), automationType.end(), automationType.begin(), ::tolower);
-            AttributeContainerVector<AttributeContainer*> singletonVec;
             if( !strcasecmp_P(pszArg, PSTR("SENSOR")) ) {
-              sensors.findById(id,singletonVec);
+              sensors.findByIds(ids,resultVec);
             } else if( !strcasecmp_P(pszArg, PSTR("CONSTRAINT")) ) {
-              Constraints(Constraint::all()).findById(id,singletonVec);
+              Constraints(Constraint::all()).findByIds(ids,resultVec);
             } else if( !strcasecmp_P(pszArg, PSTR("CAPABILITY")) ) {
-              Capabilities(Capability::all()).findById(id,singletonVec);
+              Capabilities(Capability::all()).findByIds(ids,resultVec);
             } else if( !strcasecmp_P(pszArg, PSTR("DEVICE")) ) {
-              devices.findById(id,singletonVec);
+              devices.findByIds(ids,resultVec);
             }
-            if ( singletonVec.size() == 1 ) {
-              singletonVec[0]->printlnObj( writer, automationType.c_str(), ",", bVerbose);
+            if ( resultVec.size() == ids.size() ) {
+              //singletonVec[0]->printlnObj( writer, automationType.c_str(), ",", bVerbose);
+              writer.printlnVectorObj(automationType.c_str(), resultVec, ",",bVerbose);
             } else {
               beginResp();
-              if ( atol(pszId) > NumericIdentifierMax ) {
-                writer + F("ID '") + pszId + F("' exceeded maximum '") + NumericIdentifierMax + F("'");
-              } else {
-                writer + F("Expected one ") + pszArg + F(" for ID '") + pszId + F("' but found ") + singletonVec.size();
-              }
-              respCode = INVALID_RESULT;
+              writer + F("Expected ") + ids.size() + " " + pszArg + F(" result(s) but found ") + resultVec.size();
+              respCode = resultVec.size() < ids.size() ? NOT_FOUND : CMD_ERROR;
             }
           }
         } else if (!strcasecmp_P(pszArg, PSTR("SENSORS"))) {
@@ -279,12 +280,12 @@ namespace arduino {
           writer.printlnNumberObj("hour", hour(t), ",");
           writer.printlnNumberObj("minute", minute(t), ",");
           writer.printlnNumberObj("second", second(t), ",");
-          writer.printlnStringObj("timeSet", timeStatus() == timeSet ? "YES" : "NO");
+          writer.printlnStringObj("timeSet", timeStatus() == timeSet ? "true" : "false");
           writer.decreaseDepth();
           writer.println("},");
         } else {
           beginResp();
-          writer + F("GET command expected {SENSORS|DEVICES|JSON_FORMAT|TIME|ENV|SETUP} but found: '") + pszArg + "'.";
+          writer + F("get command expected {sensors|devices|jsonFormat|time|env|setup|eeprom} but found: '") + pszArg + "'.";
           respCode = INVALID_ARGUMENT;
           break;
         }        
@@ -313,23 +314,16 @@ namespace arduino {
 
       const char *pszArg = strtok(NULL, ", ");
 
-      if (!strcasecmp_P(pszArg, PSTR("JSON_FORMAT"))) {
+      if (!strcasecmp_P(pszArg, PSTR("jsonFormat"))) {
 
         const char *pszFormat = strtok(NULL, ", \r\n");
         JsonFormat fmt = parseFormat(pszFormat);
-        if ( fmt != JSON_FORMAT_INVALID ) {
+        if ( fmt != JsonFormat::INVALID ) {
           jsonFormat = fmt;
         } else {
-          writer + F("Expected JSON_COMPACT|JSON_PRETTY but found: ") + pszFormat;
-          respCode = 301;
+          writer + F("Expected COMPACT|PRETTY but found: ") + pszFormat;
+          respCode = INVALID_ARGUMENT;
         }
-      } else if (!strcasecmp_P(pszArg, PSTR("TIME_T"))) {
-        
-        const char *pszDateTime = strtok(NULL, ", ");
-        time_t time = atol(pszDateTime);
-        setTime(time);
-        writer + F("TIME_T set to ") + time;
-
       } else if (!strcasecmp_P(pszArg, PSTR("TIME"))) {
         const char* pszYear = strtok(NULL, ", ");
         const char* pszMonth = strtok(NULL, ", ");
@@ -427,7 +421,7 @@ namespace arduino {
           respCode = CMD_ERROR;
         }
       } else {
-        writer + F("Expected TIME_T|TIME|DEVICE|SENSOR|CONSTRAINT|DEVICES|SENSORS|CONSTRAINTS|SETUP but found: ") + pszArg;
+        writer + F("Expected TIME|DEVICE|SENSOR|CONSTRAINT|DEVICES|SENSORS|CONSTRAINTS|jsonFormat but found: ") + pszArg;
         respCode = INVALID_ARGUMENT;
       }
       endResp(respCode);
@@ -445,7 +439,7 @@ namespace arduino {
       int respCode = 0;
       const char *pszAction = strtok(NULL, ", \r\n");
 
-      if (!strcasecmp_P(pszAction, PSTR("RUN"))) {
+      if (!strcasecmp_P(pszAction, PSTR("run"))) {
         return runSetup();
       }
 
@@ -453,18 +447,18 @@ namespace arduino {
 
       beginResp();
 
-      if (!strcasecmp_P(pszAction, PSTR("SET"))) {  
+      if (!strcasecmp_P(pszAction, PSTR("set"))) {  
         const char *pszField = strtok(NULL,", ");
-        if ( !strcasecmp_P(pszField, PSTR("JSON_FORMAT"))) {
+        if ( !strcasecmp_P(pszField, PSTR("jsonFormat"))) {
           const char *pszFormat = strtok(NULL, ", \r\n");
           JsonFormat fmt = parseFormat(pszFormat);
-          if ( fmt != JSON_FORMAT_INVALID ) {
+          if ( fmt != JsonFormat::INVALID ) {
             eeprom.setJsonFormat(fmt);
           } else {
-            writer + F("Expected JSON_COMPACT|JSON_PRETTY but found: ") + pszFormat;
+            writer + F("Expected COMPACT|PRETTY but found: ") + pszFormat;
             respCode = INVALID_ARGUMENT;
           }
-        } else if ( !strcasecmp_P(pszField, PSTR("SERIAL_SPEED"))) {
+        } else if ( !strcasecmp_P(pszField, PSTR("serialSpeed"))) {
           const char *pszSpeed = strtok(NULL, ", \r\n");
           unsigned long speed = atol(pszSpeed);
           if ( automation::algorithm::indexOf(speed,{{9600, 14400, 19200, 28800, 38400, 57600, 115200}}) > 0 ) {
@@ -474,7 +468,7 @@ namespace arduino {
             writer + F("Unsupported serial speed: ") + pszSpeed;
             respCode = INVALID_ARGUMENT;
           }
-        } else if ( !strcasecmp_P(pszField, PSTR("SERIAL_CONFIG"))) {
+        } else if ( !strcasecmp_P(pszField, PSTR("serialConfig"))) {
           const char *pszConfig = strtok(NULL, ", \r\n");
           std::map<string,unsigned int> validConfigs = { {"8N1",SERIAL_8N1}, {"8E1",SERIAL_8E1}, {"8O1",SERIAL_8O1} };
           auto configIt = validConfigs.find(pszConfig);
@@ -486,40 +480,40 @@ namespace arduino {
             respCode = INVALID_ARGUMENT;
           }
         } else {
-          writer + F("Expected SET field {JSON_FORMAT|SERIAL_SPEED|SERIAL_CONFIG} but found: ") + pszField;
+          writer + F("Expected SET field {jsonFormat|serialSpeed|serialConfig} but found: ") + pszField;
           respCode = INVALID_ARGUMENT;
         }
-      } else if (!strcasecmp_P(pszAction, PSTR("ADD"))) {
+      } else if (!strcasecmp_P(pszAction, PSTR("add"))) {
         const char *pszCmd = strtok(NULL,"\r\n");
         respCode = eeprom.addCommand(pszCmd);
         if ( respCode != CMD_OK ) {
-          writer + errorDesc(F("SETUP,ADD"),respCode);
+          writer + errorDesc(F("setup,add"),respCode);
         }
-      } else if (!strcasecmp_P(pszAction, PSTR("INSERT_AT"))) {
+      } else if (!strcasecmp_P(pszAction, PSTR("insertAt"))) {
         const char* pszIndex = strtok(NULL, ",\r\n");
         const char* pszCmd = strtok(NULL, "\r\n");
         int index = atoi(pszIndex);
         respCode = eeprom.insertCommandAt(index,pszCmd);
         if ( respCode != CMD_OK ) {
-          writer + errorDesc(F("SETUP,INSERT_AT"),respCode);
+          writer + errorDesc(F("setup,insertAt"),respCode);
         }
-      } else if (!strcasecmp_P(pszAction, PSTR("REPLACE_AT"))) {
+      } else if (!strcasecmp_P(pszAction, PSTR("replaceAt"))) {
         const char* pszIndex = strtok(NULL, ",\r\n");
         const char* pszCmd = strtok(NULL, "\r\n");
         int index = atoi(pszIndex);
         respCode = eeprom.setCommandAt(index,pszCmd);
         if ( respCode != CMD_OK ) {
-          writer + errorDesc(F("SETUP,REPLACE_AT"),respCode);
+          writer + errorDesc(F("setup,replaceAt"),respCode);
         }
-      } else if (!strcasecmp_P(pszAction, PSTR("REPLACE")) || !strcasecmp_P(pszAction, PSTR("REPLACE_OR_ADD"))) {
+      } else if (!strcasecmp_P(pszAction, PSTR("replace")) || !strcasecmp_P(pszAction, PSTR("replaceOrAdd"))) {
         const char* pszDelimiter = strtok(NULL, ",\r\n");
         const char* pszSearchPattern = strtok(NULL, pszDelimiter);
         const char* pszCmd = strtok(NULL, "\r\n");
-        respCode = eeprom.replaceCommand(pszSearchPattern,pszCmd,strcasecmp_P(pszAction, PSTR("REPLACE")));
+        respCode = eeprom.replaceCommand(pszSearchPattern,pszCmd,strcasecmp_P(pszAction, PSTR("replace")));
         if ( respCode != CMD_OK ) {
-          writer + errorDesc(F("SETUP,REPLACE"),respCode);
+          writer + errorDesc(F("setup,replace"),respCode);
         }
-      } else if (!strcasecmp_P(pszAction, PSTR("REMOVE"))) {
+      } else if (!strcasecmp_P(pszAction, PSTR("remove"))) {
         const char* pszCmd = strtok(NULL, "\r\n");
         respCode = eeprom.removeCommand(pszCmd);
         if ( respCode == 0 ) {
@@ -532,24 +526,24 @@ namespace arduino {
         } else {
           respCode = CMD_OK;
         }
-      } else if (!strcasecmp_P(pszAction, PSTR("REMOVE_ALL"))) {
+      } else if (!strcasecmp_P(pszAction, PSTR("removeAll"))) {
         const char* pszCmd = strtok(NULL, "\r\n");
         int removedCnt = eeprom.removeCommand(pszCmd,/*bRemoveAllMatches=*/true);
         if ( removedCnt < 0 ) {
           respCode = removedCnt;
-          writer + errorDesc(F("SETUP,REMOVE_ALL"),respCode);
+          writer + errorDesc(F("setup,removeAll"),respCode);
         } else {
           writer + F("Removed ") + removedCnt + F(" entries matching: '") + pszCmd + F("'");
         }
-      } else if (!strcasecmp_P(pszAction, PSTR("REMOVE_AT"))) {
+      } else if (!strcasecmp_P(pszAction, PSTR("removeAt"))) {
         const char* pszIndex = strtok(NULL, ",\r\n");
         int index = atoi(pszIndex);
         respCode = eeprom.removeCommandAt(index);
         if ( respCode != CMD_OK ) {
-          writer + errorDesc(F("SETUP,REMOVE_AT"),respCode);
+          writer + errorDesc(F("setup,removeAt"),respCode);
         }
       } else {
-        writer + F("SETUP expected {RUN|SET|ADD|INSERT_AT|REPLACE|REPLACE_OR_ADD|REPLACE_AT|REMOVE|REMOVE_ALL|REMOVE_AT} but found: '") + pszAction + "'.";
+        writer + F("setup expected {run|set|add|insertAt|replace|replaceOrAdd|replaceAt|remove|removeAll|removeAt} but found: '") + pszAction + "'.";
         respCode = INVALID_ARGUMENT;
       }
       endResp(respCode);

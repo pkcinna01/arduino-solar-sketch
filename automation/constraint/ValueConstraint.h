@@ -29,6 +29,22 @@ namespace automation {
 
     virtual bool checkValue(const ValueT &val) = 0;
 
+    void printValueSourceObj(json::JsonStreamWriter& w,const char* pszKey, const char* pszSeparator = "", bool bVerbose=false) const {
+      w.printKey(pszKey);
+      w.noPrefixPrintln("{");
+      w.increaseDepth();
+      w.printlnNumberObj(F("id"),this->valueSource.id);
+      w.printlnStringObj(F("type"),this->valueSource.getType().c_str());
+      w.printlnNumberObj(F("value"),this->valueSource.getValue());
+      w.decreaseDepth();
+      w.print("},");
+    }
+
+    void printlnValueSourceObj(json::JsonStreamWriter& w,const char* pszKey, const char* pszSeparator = "", bool bVerbose=false) const {
+      printValueSourceObj(w,pszKey,pszSeparator,bVerbose);
+      w.noPrefixPrintln("");
+    }
+
   protected:
     ValueSourceT& valueSource;
 
@@ -61,6 +77,7 @@ namespace automation {
     }
 
     virtual void printVerboseExtra(json::JsonStreamWriter& w) const override {
+      printlnValueSourceObj(w,"valueSource",",");
       w.printlnNumberObj(F("minVal"),minVal,",");
       w.printlnNumberObj(F("maxVal"),maxVal,",");
     }
@@ -130,6 +147,7 @@ namespace automation {
     }
 
     virtual void printVerboseExtra(json::JsonStreamWriter& w) const override {
+      printlnValueSourceObj(w,"valueSource",",");
       if ( pThreshold) {
         w.printlnNumberObj(F("threshold"),pThreshold->getValue(),",");
       }

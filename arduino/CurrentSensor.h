@@ -33,17 +33,17 @@ public:
 
   mutable Adafruit_ADS1115 ads {0x48};
   RatedAmps ratedAmps;
-  MilliVoltDrop ratedMilliVolts;
+  MilliVoltDrop ratedMillivolts;
   Channel channel;
   adsGain_t gain;
 
   CurrentSensor(const char *name,
                 RatedAmps ratedAmps = RATED_200_AMPS,
-                MilliVoltDrop ratedMilliVolts = MILLIVOLTS_75,
+                MilliVoltDrop ratedMillivolts = MILLIVOLTS_75,
                 Channel channel = /*CHANNEL_A0*/DIFFERENTIAL_0_1, adsGain_t gain = /*GAIN_EIGHT*/GAIN_SIXTEEN) :
-      ArduinoSensor(name, 0 /*no pin*/),
+      ArduinoSensor(name,/*no pin*/0), // using ArduinoSensor for "status" functionality even though there is no digital or analog pin
       ratedAmps(ratedAmps),
-      ratedMilliVolts(ratedMilliVolts),
+      ratedMillivolts(ratedMillivolts),
       channel(channel),
       gain(gain) {
   }
@@ -51,6 +51,7 @@ public:
   void setup() override {
     ads.setGain(gain);    
     ads.begin();
+    bInitialized = true;
   }
 
   float getValueImpl() const override {
@@ -73,8 +74,8 @@ public:
       rtnAmps = FAIL_RETURN_VALUE;
     } else*/
     if (shuntADC == INVALID_CHANNEL) {
-      status.error( __PRETTY_FUNCTION__ );
-      status.msg += F(" invalid ADS1115 channel ");
+      String str(F("CurrentSensor::readAmps() invalid ADS1115 channel "));
+      status.error(str);
       status.msg += channel;
       rtnAmps = FAIL_RETURN_VALUE;
     } else {
@@ -102,7 +103,7 @@ public:
   }
 
   double getRatedMilliOhms() const {
-    double mv = ratedMilliVolts;
+    double mv = ratedMillivolts;
     double amps = ratedAmps;
     return mv / amps;
   }
@@ -156,11 +157,68 @@ public:
     dtostrf(getMilliVoltIncrement(), 2, 8, buffer);
     w.printlnNumberObj(F("millivoltIncrement"),buffer,",");
     w.printlnNumberObj(F("ratedAmps"), ratedAmps, ",");
-    w.printlnNumberObj(F("ratedMilliVolts"), ratedMilliVolts,",");
+    w.printlnNumberObj(F("ratedMillivolts"), ratedMillivolts,",");
     
     double ohms = getRatedMilliOhms()/1000.0;
     dtostrf(ohms, 2, 8, buffer);
-    w.printlnNumberObj(F("ratedResistance"), buffer,",");
+    w.printlnNumberObj(F("ratedOhms"), buffer,",");
+  }
+
+  virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override {
+    SetCode rtn = ArduinoSensor::setAttribute(pszKey,pszVal,pRespStream);
+    if ( rtn == SetCode::Ignored ) {
+      if ( !strcasecmp_P(pszKey, PSTR("ratedAmps")) ) {
+        ratedAmps = atol(pszVal);
+        rtn = SetCode::OK;
+      } else if ( !strcasecmp_P(pszKey, PSTR("ratedMillivolts")) ) {
+        ratedMillivolts = atol(pszVal);
+        rtn = SetCode::OK;
+      } else if ( !strcasecmp_P(pszKey, PSTR("channel")) ) {
+        rtn = SetCode::OK;
+        if ( !strcasecmp_P(pszVal, PSTR("CHANNEL_A0")) ) {
+          channel = CHANNEL_A0;
+        } else if ( !strcasecmp_P(pszVal, PSTR("CHANNEL_A1")) ) {
+          channel = CHANNEL_A1;
+        } else if ( !strcasecmp_P(pszVal, PSTR("CHANNEL_A2")) ) {
+          channel = CHANNEL_A2;
+        } else if ( !strcasecmp_P(pszVal, PSTR("CHANNEL_A3")) ) {
+          channel = CHANNEL_A3;
+        } else if ( !strcasecmp_P(pszVal, PSTR("DIFFERENTIAL_0_1")) ) {
+          channel = DIFFERENTIAL_0_1;
+        } else if ( !strcasecmp_P(pszVal, PSTR("DIFFERENTIAL_2_3")) ) {
+          channel = DIFFERENTIAL_2_3;
+        } else {
+          rtn = SetCode::Error;
+          if (pRespStream) {
+            (*pRespStream) << F("Invalid value: ") << pszVal;
+          }
+        }
+      } else if ( !strcasecmp_P(pszKey, PSTR("gain")) ) {
+        rtn = SetCode::OK;
+        if ( !strcasecmp_P(pszVal, PSTR("GAIN_ONE")) ) {
+          gain = GAIN_ONE;
+        } else if ( !strcasecmp_P(pszVal, PSTR("GAIN_TWO")) ) {
+          gain = GAIN_TWO;
+        } else if ( !strcasecmp_P(pszVal, PSTR("GAIN_FOUR")) ) {
+          gain = GAIN_FOUR;
+        } else if ( !strcasecmp_P(pszVal, PSTR("GAIN_EIGHT")) ) {
+          gain = GAIN_EIGHT;
+        } else if ( !strcasecmp_P(pszVal, PSTR("GAIN_SIXTEEN")) ) {
+          gain = GAIN_SIXTEEN;
+        } else if ( !strcasecmp_P(pszVal, PSTR("GAIN_TWOTHIRDS")) ) {
+          gain = GAIN_TWOTHIRDS;
+        } else {
+          rtn = SetCode::Error;
+          if (pRespStream) {
+            (*pRespStream) << F("Invalid value: ") << pszVal;
+          }
+        }
+      }
+      if (pRespStream && rtn == SetCode::OK ) {
+        (*pRespStream) << "'" << name << "' " << pszKey << "=" << pszVal;
+      }
+    }
+    return rtn;
   }
 
 };

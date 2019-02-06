@@ -102,6 +102,13 @@ namespace automation {
           }
         }
       }
+    }
+
+    template<typename ResultContainerT>
+    std::vector<ResultContainerT>& findByIds( std::vector<unsigned long> ids, std::vector<ResultContainerT>& resultVec) {
+      for( auto id : ids ) {
+        findById(id,resultVec);
+      }
       return resultVec;
     }
 

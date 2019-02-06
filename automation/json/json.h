@@ -8,47 +8,45 @@ namespace automation
 namespace json
 {
 
-typedef unsigned char JsonFormat;
+enum class JsonFormat { INVALID = -1, COMPACT, PRETTY };
 
-const JsonFormat JSON_FORMAT_INVALID = -1, JSON_FORMAT_COMPACT = 0, JSON_FORMAT_PRETTY = 1;
-
-static JsonFormat jsonFormat = JSON_FORMAT_PRETTY;
+static JsonFormat jsonFormat = JsonFormat::PRETTY;
 
 static JsonFormat parseFormat(const char *pszFormat)
 {
   if (!strcasecmp_P(pszFormat, PSTR("COMPACT")))
   {
-    return JSON_FORMAT_COMPACT;
+    return JsonFormat::COMPACT;
   }
   else if (!strcasecmp_P(pszFormat, PSTR("PRETTY")))
   {
-    return JSON_FORMAT_PRETTY;
+    return JsonFormat::PRETTY;
   }
   else
   {
-    return JSON_FORMAT_INVALID;
+    return JsonFormat::INVALID;
   }
 }
 
 static string formatAsString(JsonFormat fmt)
 {
-  if (fmt == JSON_FORMAT_COMPACT)
+  if (fmt == JsonFormat::COMPACT)
   {
-    return "COMPACT";
+    return RVSTR("COMPACT");
   }
-  else if (fmt == JSON_FORMAT_PRETTY)
+  else if (fmt == JsonFormat::PRETTY)
   {
-    return "PRETTY";
+    return RVSTR("PRETTY");
   }
   else
   {
-    string msg("INVALID:");
+    string msg(RVSTR("INVALID:"));
     msg += (unsigned int)fmt;
     return msg;
   }
 }
 
-static bool isPretty() { return jsonFormat == JSON_FORMAT_PRETTY; }
+static bool isPretty() { return jsonFormat == JsonFormat::PRETTY; }
 
 } // namespace json
 } // namespace automation

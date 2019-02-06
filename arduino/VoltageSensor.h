@@ -52,6 +52,27 @@ public:
     w.printlnNumberObj(F("vcc"), vcc, ",");
     w.printlnNumberObj(F("r1"), r1, ",");
     w.printlnNumberObj(F("r2"), r2, ",");
+    w.printlnNumberObj(F("maxVccAgeMs"), maxVccAgeMs, ",");
+  }
+
+  virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override {
+    SetCode rtn = AnalogSensor::setAttribute(pszKey,pszVal,pRespStream);
+    if ( rtn == SetCode::Ignored ) {
+      if ( !strcasecmp_P(pszKey, PSTR("r1")) ) {
+        r1 = atof(pszVal);
+        rtn = SetCode::OK;
+      } else if ( !strcasecmp_P(pszKey, PSTR("r2")) ) {
+        r2 = atof(pszVal);
+        rtn = SetCode::OK;
+      } else if ( !strcasecmp_P(pszKey, PSTR("maxVccAgeMs")) ) {
+        maxVccAgeMs = atol(pszVal);
+        rtn = SetCode::OK;
+      }
+      if (pRespStream && rtn == SetCode::OK ) {
+        (*pRespStream) << "'" << name << "' " << pszKey << "=" << pszVal;
+      }
+    }
+    return rtn;
   }
 
 };
