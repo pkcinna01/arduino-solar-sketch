@@ -49,6 +49,7 @@ namespace automation {
 
   protected:
     bool bInitialized = false;
+
   };
 
 

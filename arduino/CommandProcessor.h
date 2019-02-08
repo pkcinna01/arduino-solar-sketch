@@ -140,8 +140,25 @@ namespace arduino {
         pszCmd = strtok(NULL, "\r\n");
         bVerbose = true;
         respCode = executeLine(pszCmd,bVerbose);
+      } else if (!strcasecmp_P(pszCmdName, PSTR("PAUSE")) || !strcasecmp_P(pszCmdName, PSTR("RESUME")) ) {
+        bool bPause = !strcasecmp_P(pszCmdName, PSTR("PAUSE"));
+        if ( !bPause ) {
+          Constraints::setPauseEndTimeMs(automation::millisecs64());
+        } else {
+          const char* pszSeconds = strtok(NULL, "\r\n");
+          if ( pszSeconds == nullptr ) {
+            Constraints::setPauseEndTimeMs(0); // zero for no pause end
+          } else {
+            unsigned long seconds = atol(pszSeconds);
+            Constraints::setPauseEndTimeMs(automation::millisecs64()+1000ull*seconds);
+          }
+        }
+        writer.println("{").increaseDepth();
+        beginResp() + F("Constraint processing ") + (Constraints::isPaused()?F("paused"):F("resumed"));
+        endResp(0);
+        writer.decreaseDepth().print("}");
       } else {
-        beginResp() + F("Expected {get|include|exclude|set|setup|eeprom|reset|verbose} but found: ") + (pszCmdName?pszCmdName:"");
+        beginResp() + F("Expected {get|include|exclude|set|setup|eeprom|reset|verbose|pause|resume} but found: ") + (pszCmdName?pszCmdName:"");
         endResp(INVALID_ARGUMENT);
       }
       return respCode;
@@ -216,13 +233,15 @@ namespace arduino {
           writer + year(t) + "-" + month(t) + "-" + day(t) + " " + hour(t) + ":" + minute(t) + ":" + second(t);
           writer.endStringObj();
           writer.noPrefixPrintln(",");
-          writer.printlnStringObj("timeSet", timeStatus() == timeSet ? "true" : "false");
+          writer.printlnBoolObj("timeSet", automation::isTimeValid());
           writer.decreaseDepth();
           writer.println("},");
         } else if (!strcasecmp_P(pszArg, PSTR("eeprom")) || !strcasecmp_P(pszArg, PSTR("setup"))) {
           writer.printKey(F("eeprom"));
           eeprom.noPrefixPrint(writer);
           writer.noPrefixPrintln(",");
+        } else if (!strcasecmp_P(pszArg, PSTR("isPaused"))) {
+          writer.printlnBoolObj(F("isPaused"), Constraints::isPaused(), ",");
         } else if (!strcasecmp_P(pszArg, PSTR("jsonFormat"))) {
           writer.printlnStringObj(F("jsonFormat"), formatAsString(jsonFormat).c_str(), ",");
         } else if (!strcasecmp_P(pszArg, PSTR("SENSOR")) 
@@ -280,7 +299,7 @@ namespace arduino {
           writer.printlnNumberObj("hour", hour(t), ",");
           writer.printlnNumberObj("minute", minute(t), ",");
           writer.printlnNumberObj("second", second(t), ",");
-          writer.printlnStringObj("timeSet", timeStatus() == timeSet ? "true" : "false");
+          writer.printlnBoolObj("timeSet", automation::isTimeValid());
           writer.decreaseDepth();
           writer.println("},");
         } else {

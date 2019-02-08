@@ -110,7 +110,7 @@ namespace automation {
         }
       } else if ( !strcasecmp_P(pszKey,PSTR("PASSED")) ) {
         overrideTestResult(text::parseBool(pszVal));
-        strResultValue = isPassed() ? "TRUE" : "FALSE";
+        strResultValue = text::boolAsString(isPassed());
         rtn = SetCode::OK;
       } else if ( !strcasecmp_P(pszKey,PSTR("passDelayMs")) ) {
         setPassDelayMs(atol(pszVal));
@@ -144,7 +144,7 @@ namespace automation {
     w.increaseDepth();
     w.printlnStringObj(F("title"), getTitle(), ",");
     w.printlnNumberObj(F("id"), (unsigned long) id, ",");
-    w.printlnStringObj(F("state"), isPassed() ? "PASSED" : "FAILED", ",");
+    w.printlnBoolObj(F("passed"), isPassed(), ",");
     if ( bVerbose ) {
       if ( !children.empty() ) {
         w.printlnVectorObj(F("children"), children, ",");

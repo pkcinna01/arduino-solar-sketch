@@ -1,5 +1,5 @@
 #define ARDUINO_APP
-#define VERSION "SOLAR-1.3"
+#define VERSION "SOLAR-1.4"
 #define BUILD_NUMBER 1
 #define BUILD_DATE __DATE__
 
@@ -151,7 +151,7 @@ void setup() {
   eeprom.getVersion(version);
   if ( version != VERSION )
   {
-    gLastInfoMsg = F("Version changed. Clearing EEPROM and saving defaults.  Old: ");
+    gLastInfoMsg = F("SETUP: Version changed. Clearing EEPROM and saving defaults.  Old: ");
     gLastInfoMsg += version;
     gLastInfoMsg += F(" New: ");
     gLastInfoMsg += VERSION;
@@ -163,7 +163,7 @@ void setup() {
   }
   else
   {
-    gLastInfoMsg = F("Loading EEPROM data for version ");
+    gLastInfoMsg = F("SETUP: Loading EEPROM data for version ");
     gLastInfoMsg += version;
     json::jsonFormat = eeprom.getJsonFormat();
     serialSpeed = eeprom.getSerialSpeed();
@@ -218,9 +218,11 @@ void loop() {
 
   if ( cmdReady && strlen(commandBuff) || (currentTimeMs - lastUpdateTimeMs) > updateIntervalMs )
   {
-    for (Device* pDevice : devices) {
-      bool bIgnoreSameResult = true; // only update relays and switches when constraint state changes
-      pDevice->applyConstraint(bIgnoreSameResult);
+    if ( Constraints::isPaused() == false ) {
+      for (Device* pDevice : devices) {
+        bool bIgnoreSameResult = false; // this will override remote changes if constraint mode is not REMOTE
+        pDevice->applyConstraint(bIgnoreSameResult);
+      }
     }
     lastUpdateTimeMs = currentTimeMs;
   } else if ( beginCmdReadTimeMs > 0 && (currentTimeMs - beginCmdReadTimeMs) > updateIntervalMs ) {

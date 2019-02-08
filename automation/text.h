@@ -29,6 +29,12 @@ std::string asString(const T &t)
   return os.str();
 }
 
+template <typename T>
+std::string boolAsString(const T &t)
+{
+  return t != 0 ? RVSTR("true") : RVSTR("false");
+}
+
 static bool parseBool(const char *pszVal)
 {
   return !strcasecmp_P(pszVal, PSTR("ON")) || !strcasecmp_P(pszVal, PSTR("TRUE")) || !strcasecmp_P(pszVal, PSTR("YES")) || atoi(pszVal) > 0;

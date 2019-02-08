@@ -13,10 +13,10 @@ namespace arduino {
     RTTI_GET_TYPE_IMPL(arduino,PowerSwitch)
 
     unsigned char relayPin;
-    bool onValue;
+    bool relayOnSignal;
 
-    PowerSwitch(const string &name, int relayPin, bool onValue=true) :
-        automation::PowerSwitch(name), relayPin(relayPin), onValue(onValue)
+    PowerSwitch(const string &name, int relayPin, bool relayOnSignal=true) :
+        automation::PowerSwitch(name), relayPin(relayPin), relayOnSignal(relayOnSignal)
     {
     }
 
@@ -30,18 +30,20 @@ namespace arduino {
 
     bool isOn() const override {
       //cout << __PRETTY_FUNCTION__ << endl;
-      bool rtn = digitalRead(relayPin) == onValue;
+      bool rtn = digitalRead(relayPin) == relayOnSignal;
       //cout << __PRETTY_FUNCTION__ << "=" << rtn << endl;
       return rtn;
     }
 
     void setOn(bool bOn) override {
       //cout << __PRETTY_FUNCTION__ << " bOn=" << bOn << endl;
-      digitalWrite(relayPin,bOn?onValue:!onValue);
+      digitalWrite(relayPin,bOn?relayOnSignal:!relayOnSignal);
     }
 
     void printVerboseExtra(JsonStreamWriter& w) const {
+      automation::PowerSwitch::printVerboseExtra(w);
       w.printlnNumberObj(F("relayPin"),(int)relayPin,",");
+      w.printlnStringObj(F("relayOnSignal"),relayOnSignal?F("HIGH"):F("LOW"),",");
     }
 
   };

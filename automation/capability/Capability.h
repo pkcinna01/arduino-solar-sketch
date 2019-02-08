@@ -42,10 +42,11 @@ namespace automation {
       return getValueImpl();
     }
 
-    virtual bool setValue(double dVal) {
-      bool bOk = setValueImpl(dVal);
+    virtual bool setValue(double newVal) {
+      double oldVal = getValue();
+      bool bOk = setValueImpl(newVal);
       if ( bOk ) {
-        notifyListeners();
+        notifyValueSetListeners(newVal,oldVal);
       }
       return bOk;
     };
@@ -75,14 +76,14 @@ namespace automation {
 
     virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override;
 
-    virtual void notifyListeners() {
+    virtual void notifyValueSetListeners(double newVal, double oldVal) {
       for( CapabilityListener* pListener : listeners) {
-        pListener->valueSet(this,getValue());
+        pListener->valueSet(this,newVal,oldVal);
       }
     };
 
     struct CapabilityListener {
-      virtual void valueSet(const Capability* pCapability, double value) = 0;
+      virtual void valueSet(const Capability* pCapability, double newVal, double oldVal) = 0;
     };
 
     vector<CapabilityListener*> listeners;

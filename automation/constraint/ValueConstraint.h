@@ -33,8 +33,8 @@ namespace automation {
       w.printKey(pszKey);
       w.noPrefixPrintln("{");
       w.increaseDepth();
-      w.printlnNumberObj(F("id"),this->valueSource.id);
-      w.printlnStringObj(F("type"),this->valueSource.getType().c_str());
+      w.printlnNumberObj(F("id"),this->valueSource.id,",");
+      w.printlnStringObj(F("type"),this->valueSource.getType().c_str(),",");
       w.printlnNumberObj(F("value"),this->valueSource.getValue());
       w.decreaseDepth();
       w.print("},");

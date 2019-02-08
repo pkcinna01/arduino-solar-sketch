@@ -48,6 +48,28 @@ namespace automation {
   static bool bSynchronizing = false;
 
   unsigned long millisecs();
+  
+  // TODO: review calls to 32 bit millisecs() and consider 64 bit version if rollover impacts computations
+  #ifdef ARDUINO_APP
+  uint64_t millisecs64() { 
+    static unsigned long msbs = 0;
+    static unsigned long lastMillis = 0;
+    unsigned long ms = millisecs();
+    if ( ms < lastMillis ) {
+      // assume rollover...
+      msbs++;
+    }
+    lastMillis = ms;
+    uint64_t rtn = msbs << 32;
+    rtn += ms;
+    return rtn;
+  };
+  #else
+    // TODO: need precompile check for size of unsigned long (assume 64 bits for now)
+    uint64_t millisecs64() {
+      return millisecs();
+    }
+  #endif
 
   void sleep(unsigned long intervalMs);
 

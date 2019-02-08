@@ -23,7 +23,6 @@ class SimultaneousConstraint : public Constraint, public Capability::CapabilityL
       return false;
     }
 
-    // considered simultaneous if last non-zero capability result happened within maxIntervalMs millisecs
     bool checkValue() override {
       unsigned long now = millisecs();
       unsigned long elapsedMs = now - lastPassTimeMs;
@@ -67,11 +66,14 @@ class SimultaneousConstraint : public Constraint, public Capability::CapabilityL
     // t2.addListener(simultaneousConstraint);
     // t3.addListener(simultaneousConstraint);
     //
-    void valueSet(const Capability* pCapability, double numericValue) override {
-      if ( automation::bSynchronizing ) {
+    void valueSet(const Capability* pCapability, double newVal, double oldVal) override {
+      if ( newVal != oldVal ) {
+        return; // capability (ex: toggle) was set but not changed so should not impact simultaneity
+      } else if ( automation::bSynchronizing ) {
         return;
-      }
-      if ( numericValue == targetValue ) {
+      } else if ( pCapability == this->pCapability ) {
+        return; // would not make sense to check if a capability is simultaneous with itself
+      } else if ( newVal == targetValue ) {
         lastPassTimeMs = millisecs();
         pLastPassCapability = pCapability;
       }

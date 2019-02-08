@@ -13,12 +13,12 @@ namespace arduino {
     RTTI_GET_TYPE_IMPL(arduino,CoolingFan)
    
     int relayPin;
-    bool onValue;
+    bool relayOnSignal;
 
-    CoolingFan(const string &name, int relayPin, automation::Sensor& tempSensor, float onTemp, float offTemp, bool onValue=true, unsigned int minDurationMs=0) :
+    CoolingFan(const string &name, int relayPin, automation::Sensor& tempSensor, float onTemp, float offTemp, bool relayOnSignal=true, unsigned int minDurationMs=0) :
         automation::CoolingFan(name,tempSensor,onTemp,offTemp,minDurationMs),
         relayPin(relayPin),
-        onValue(onValue)
+        relayOnSignal(relayOnSignal)
     {
     }
 
@@ -31,21 +31,49 @@ namespace arduino {
     }
 
     bool isOn() const override {
-      bool rtn = digitalRead(relayPin) == onValue;
+      bool rtn = digitalRead(relayPin) == relayOnSignal;
       return rtn;
     }
 
     void setOn(bool bOn) override {
-      digitalWrite(relayPin,bOn?onValue:!onValue);
+      digitalWrite(relayPin,bOn?relayOnSignal:!relayOnSignal);
+    }
+
+    virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream) override {
+      string strResultValue;
+      SetCode rtn = automation::CoolingFan::setAttribute(pszKey,pszVal,pRespStream);
+      if ( rtn == SetCode::Ignored ) {
+        if ( !strcasecmp_P(pszKey,PSTR("relayPin")) ) {
+          relayPin = atol(pszVal);
+          strResultValue = text::asString(relayPin);
+          rtn = SetCode::OK;
+        } else if ( !strcasecmp_P(pszKey,PSTR("relayOnSignal")) ) {
+          if ( !strcasecmp_P(pszVal,PSTR("HIGH")) ) {
+            relayOnSignal = true;
+            strResultValue = text::boolAsString(relayOnSignal);
+            rtn = SetCode::OK;
+          } else if ( !strcasecmp_P(pszVal,PSTR("LOW")) ) {
+            relayOnSignal = false;
+            strResultValue = text::boolAsString(relayOnSignal);
+            rtn = SetCode::OK;
+          } else {
+            rtn = SetCode::Error;
+            if (pRespStream) {
+              (*pRespStream) << RVSTR("Expected HIGH or LOW but found ") << pszVal;
+            }
+          }
+        }
+        if (pRespStream && rtn == SetCode::OK ) {
+          (*pRespStream) << pszKey << "=" << strResultValue;
+        }
+      }
+      return rtn;
     }
 
     void printVerboseExtra(JsonStreamWriter& w) const {
-      w.printlnNumberObj(F("relayPin"),relayPin,",");
-      w.printlnNumberObj(F("onValue"),onValue,",");
-      w.printlnNumberObj(F("onTemp"),minTemp.pThreshold->getValue() + minTemp.getPassMargin(),",");
-      w.printlnNumberObj(F("offTemp"),minTemp.pThreshold->getValue() - minTemp.getFailMargin(),",");
-      w.printlnNumberObj(F("minDurationMs"),minTemp.getFailDelayMs(),",");
-      w.printlnNumberObj(F("currentTemp"),tempSensor.getValue(),",");
+      automation::CoolingFan::printVerboseExtra(w);
+      w.printlnNumberObj(F("relayPin"),(int)relayPin,",");
+      w.printlnStringObj(F("relayOnSignal"),relayOnSignal?F("HIGH"):F("LOW"),",");
     }
   };
 

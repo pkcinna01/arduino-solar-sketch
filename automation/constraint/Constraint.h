@@ -133,6 +133,10 @@ namespace automation {
 
     void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const override;
 
+    bool isRemoteCompatible() {
+      return (mode&REMOTE_MODE) > 0;
+    }
+
     protected:
 
     vector<Constraint *> children;
@@ -151,7 +155,26 @@ namespace automation {
   };
 
   class Constraints : public AttributeContainerVector<Constraint*> {
+
+    // way to avoid linking complicatons since arduino and non-arduino builds may link individual cpp differently
+    static uint64_t& pauseEndTimeMs() {
+      static uint64_t pauseEndTimeMs = automation::millisecs64();
+      return pauseEndTimeMs;
+    };
+
   public:
+    
+    static bool isPaused() {
+      uint64_t endTimeMs = pauseEndTimeMs();
+      bool bPaused = endTimeMs == 0 || automation::millisecs64() < endTimeMs;
+      return bPaused;
+    }
+
+    static void setPauseEndTimeMs(uint64_t newPauseEndTimeMs) {
+      uint64_t& endTimeMs = pauseEndTimeMs();
+      endTimeMs = newPauseEndTimeMs;
+    }
+
     Constraints(){}
     Constraints( vector<Constraint*>& constraints ) : AttributeContainerVector<Constraint*>(constraints) {}
     Constraints( vector<Constraint*> constraints ) : AttributeContainerVector<Constraint*>(constraints) {}

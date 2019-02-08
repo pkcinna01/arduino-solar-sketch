@@ -240,7 +240,7 @@ class JsonStreamWriter
   JsonStreamWriter& printBoolObj(TKey k, bool v, const char* suffix = "" )
   {     
     printKey(k);
-    statefulPrint(v?"true":"false"); 
+    statefulPrint(v?F("true"):F("false")); 
     statefulPrint(suffix);
     return *this;
   }

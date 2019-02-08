@@ -165,6 +165,12 @@ public:
   }
 
   virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override {
+    if ( !strcasecmp_P(pszKey, PSTR("sensorPin")) ) {
+      if (pRespStream) {
+        (*pRespStream) << F("Sensor pin not supported. ADS1115 uses SDA/SCL.");
+      }
+      return SetCode::Error;
+    }
     SetCode rtn = ArduinoSensor::setAttribute(pszKey,pszVal,pRespStream);
     if ( rtn == SetCode::Ignored ) {
       if ( !strcasecmp_P(pszKey, PSTR("ratedAmps")) ) {
