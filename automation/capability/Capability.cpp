@@ -35,12 +35,12 @@ void Capability::print(json::JsonStreamWriter& w, bool bVerbose, bool bIncludePr
     w.increaseDepth();
     w.printlnStringObj(F("type"),getType().c_str(),",");
     w.printlnStringObj(F("title"),getTitle().c_str(),",");
-    w.printlnNumberObj(F("id"),id,",");
+    w.printlnNumberObj(F("id"),(int) id,",");
     if ( bVerbose ) {
       printVerboseExtra(w);
       if ( pDevice ) {
         //pDevice->printlnObj(w,F("device"),",",false);
-        w.printlnNumberObj(F("deviceId"), pDevice->id,",");
+        w.printlnNumberObj(F("deviceId"), (int) pDevice->id,",");
       }
     }
     w.printlnNumberObj(F("value"), getValue() );

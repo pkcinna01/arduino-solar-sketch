@@ -22,6 +22,12 @@ struct Printable
     print(w, false);
   }
 
+  void printVerbose(int depth = 0) const
+  {
+    JsonSerialWriter w(depth);
+    print(w, true);
+  }
+
   virtual void print(JsonStreamWriter &w, bool bVerbose = false, bool bIncludePrefix = true) const = 0;
 
   template<typename TKey>

@@ -70,7 +70,7 @@ public:
     return rtn;
   }
 
-  void printVerboseExtra(JsonStreamWriter& w) const {
+  void printVerboseExtra(json::JsonStreamWriter& w) const {
       automation::Device::printVerboseExtra(w);
       w.printlnBoolObj(F("on"),isOn(),",");
     }

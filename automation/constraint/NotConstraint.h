@@ -8,7 +8,7 @@ namespace automation {
 
   class NotConstraint : public NestedConstraint {
   public:
-    RTTI_GET_TYPE_IMPL(automation,Not)
+    RTTI_GET_TYPE_IMPL(automation,Not);
 
      explicit NotConstraint(Constraint *pConstraint) : NestedConstraint(pConstraint) {
     }

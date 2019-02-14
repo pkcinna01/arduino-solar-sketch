@@ -10,19 +10,39 @@ using namespace automation::json;
 
 namespace arduino {
 
-#define VERSION_SIZE 10
+#define VERSION_SIZE 20
+#define DEVICE_NAME_SIZE 80
 #define CMD_ARR_MAX_ROW_COUNT 20
 #define CMD_ARR_MAX_ROW_LENGTH 80
+
+using DeviceIdType = unsigned int;
 
   class Eeprom {
   public:
 
-    const size_t VERSION_OFFSET = 0;
-    const size_t FORMAT_OFFSET = VERSION_SIZE;
-    const size_t SERIAL_SPEED_OFFSET = VERSION_SIZE + sizeof(JsonFormat);
+    const size_t DEVICE_ID_OFFSET = 0;
+    const size_t DEVICE_NAME_OFFSET = DEVICE_ID_OFFSET + sizeof(DeviceIdType);
+    const size_t VERSION_OFFSET = DEVICE_NAME_OFFSET + DEVICE_NAME_SIZE;
+    const size_t FORMAT_OFFSET = VERSION_OFFSET + VERSION_SIZE;
+    const size_t SERIAL_SPEED_OFFSET = FORMAT_OFFSET + sizeof(JsonFormat);
     const size_t SERIAL_CONFIG_OFFSET = SERIAL_SPEED_OFFSET + sizeof(unsigned long);
     const size_t CMD_COUNT_OFFSET = SERIAL_CONFIG_OFFSET + sizeof(unsigned int);
     const size_t CMD_ARR_OFFSET = CMD_COUNT_OFFSET + sizeof(unsigned int);
+
+    String &getDeviceName(String &deviceName) {
+      char buf[DEVICE_NAME_SIZE];
+      EEPROM.get(DEVICE_NAME_OFFSET, buf);
+      deviceName = buf;
+      return deviceName;
+    }
+
+    Eeprom &setDeviceName(const char *pszDeviceName) {
+      char buf[DEVICE_NAME_SIZE];
+      strncpy(buf,pszDeviceName,DEVICE_NAME_SIZE-1);
+      buf[DEVICE_NAME_SIZE-1] = '\0';
+      EEPROM.put(DEVICE_NAME_OFFSET, buf);
+      return *this;
+    }
 
     JsonFormat getJsonFormat() {
       JsonFormat format;
@@ -44,7 +64,8 @@ namespace arduino {
 
     Eeprom &setVersion(const char *pszVersion) {
       char buf[VERSION_SIZE];
-      strcpy(buf,pszVersion);
+      strncpy(buf,pszVersion,VERSION_SIZE-1);
+      buf[VERSION_SIZE-1] = '\0';
       EEPROM.put(VERSION_OFFSET, buf);
       return *this;
     }
@@ -60,6 +81,17 @@ namespace arduino {
       return CMD_OK;
     }
     
+    DeviceIdType getDeviceId() {
+      DeviceIdType rtnVal;
+      EEPROM.get(DEVICE_ID_OFFSET, rtnVal);
+      return rtnVal;
+    }
+
+    int setDeviceId(DeviceIdType id) {
+      EEPROM.put( DEVICE_ID_OFFSET, id);
+      return CMD_OK;
+    }
+
     unsigned long getSerialSpeed() {
       unsigned long rtnVal;
       EEPROM.get(SERIAL_SPEED_OFFSET, rtnVal);
@@ -204,6 +236,8 @@ namespace arduino {
       w.noPrefixPrintln("{");
       w.increaseDepth();
       String str;
+      w.printlnStringObj(F("deviceId"), getDeviceId(), ",");
+      w.printlnStringObj(F("deviceName"), getDeviceName(str), ",");
       w.printlnStringObj(F("version"), getVersion(str), ",");
       w.printlnNumberObj(F("serialSpeed"), getSerialSpeed(), ",");
       w.printlnStringObj(F("serialConfig"), Eeprom::serialConfigAsString(getSerialConfig()), ",");

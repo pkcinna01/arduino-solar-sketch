@@ -1,5 +1,5 @@
 #define ARDUINO_APP
-#define VERSION "SOLAR-1.4"
+#define VERSION "SOLAR-1.43"
 #define BUILD_NUMBER 1
 #define BUILD_DATE __DATE__
 
@@ -276,6 +276,10 @@ void loop() {
     writer.implPrint(writer.getByteCount());
     writer.implPrint(":");
     writer.implPrint(writer.getChecksum());
+    writer.implPrint(":");
+    writer.implPrint(automation::isTimeValid()?1:0);
+    writer.implPrint(":");
+    writer.implPrint(eeprom.getDeviceId());
     writer.implPrintln("#");
 
     bytesRead = 0; // reset commandBuff

@@ -33,7 +33,7 @@ namespace automation {
       w.printKey(pszKey);
       w.noPrefixPrintln("{");
       w.increaseDepth();
-      w.printlnNumberObj(F("id"),this->valueSource.id,",");
+      w.printlnNumberObj(F("id"),(int)this->valueSource.id,",");
       w.printlnStringObj(F("type"),this->valueSource.getType().c_str(),",");
       w.printlnNumberObj(F("value"),this->valueSource.getValue());
       w.decreaseDepth();
@@ -77,7 +77,7 @@ namespace automation {
     }
 
     virtual void printVerboseExtra(json::JsonStreamWriter& w) const override {
-      printlnValueSourceObj(w,"valueSource",",");
+      ValueConstraint<ValueT,ValueSourceT>::printlnValueSourceObj(w,"valueSource",",");
       w.printlnNumberObj(F("minVal"),minVal,",");
       w.printlnNumberObj(F("maxVal"),maxVal,",");
     }
@@ -147,7 +147,7 @@ namespace automation {
     }
 
     virtual void printVerboseExtra(json::JsonStreamWriter& w) const override {
-      printlnValueSourceObj(w,"valueSource",",");
+      ValueConstraint<ValueT,ValueSourceT>::printlnValueSourceObj(w,"valueSource",",");
       if ( pThreshold) {
         w.printlnNumberObj(F("threshold"),pThreshold->getValue(),",");
       }

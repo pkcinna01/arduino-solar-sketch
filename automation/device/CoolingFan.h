@@ -28,12 +28,11 @@ namespace automation {
       string strResultValue;
       SetCode rtn = PowerSwitch::setAttribute(pszKey,pszVal,pRespStream);
       if ( rtn == SetCode::Ignored ) {
-        if ( !strcasecmp_P(pszKey,PSTR("onTemp")) ) {
-          // off temp is stored relative to on temp so have to adjust in
-          float offTemp = getOffTemp();
+        if ( !strcasecmp_P(pszKey,PSTR("onTemp")) ) {          
+          float offTemp = getOffTemp(); 
           rtn = minTemp.setAttribute( RVSTR("threshold"), pszVal );
           if ( rtn == SetCode::OK ) {
-            setOffTemp(offTemp);
+            setOffTemp(offTemp); // off temp is stored relative to on temp so adjust it
             strResultValue = text::asString(minTemp.pThreshold->getValue());
             minTemp.setPassMargin(0); // should be 0 already
           }

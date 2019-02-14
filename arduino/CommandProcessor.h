@@ -450,9 +450,9 @@ namespace arduino {
     }    
 
 
-    ///////////
-    // SETUP //
-    ///////////
+    ////////////////////
+    // SETUP (EEPROM) //
+    ////////////////////
 
     int processSetupCommand(bool bVerbose) {
       int respCode = 0;
@@ -468,7 +468,16 @@ namespace arduino {
 
       if (!strcasecmp_P(pszAction, PSTR("set"))) {  
         const char *pszField = strtok(NULL,", ");
-        if ( !strcasecmp_P(pszField, PSTR("jsonFormat"))) {
+        if ( !strcasecmp_P(pszField, PSTR("deviceName"))) {
+          const char *pszDeviceName = strtok(NULL, "\r\n");
+          eeprom.setDeviceName(pszDeviceName);
+          String str;
+          writer + F("Device name set to: '") + eeprom.getDeviceName(str) + F("'");
+        } else if ( !strcasecmp_P(pszField, PSTR("deviceId"))) {
+          const char *pszDeviceId = strtok(NULL, ", \r\n");
+          eeprom.setDeviceId(atol(pszDeviceId));
+          writer + F("Device ID set to: '") + eeprom.getDeviceId() + F("'");
+        } else if ( !strcasecmp_P(pszField, PSTR("jsonFormat"))) {
           const char *pszFormat = strtok(NULL, ", \r\n");
           JsonFormat fmt = parseFormat(pszFormat);
           if ( fmt != JsonFormat::INVALID ) {
@@ -499,7 +508,7 @@ namespace arduino {
             respCode = INVALID_ARGUMENT;
           }
         } else {
-          writer + F("Expected SET field {jsonFormat|serialSpeed|serialConfig} but found: ") + pszField;
+          writer + F("Expected SET field {deviceName|jsonFormat|serialSpeed|serialConfig} but found: ") + pszField;
           respCode = INVALID_ARGUMENT;
         }
       } else if (!strcasecmp_P(pszAction, PSTR("add"))) {

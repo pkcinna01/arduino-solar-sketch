@@ -66,7 +66,7 @@ namespace automation {
 
   class SensorFn : public Sensor {
   public:
-    RTTI_GET_TYPE_IMPL(automation::sensor,SensorFn)
+    RTTI_GET_TYPE_IMPL(automation::sensor,SensorFn);
 
     //const std::function<float()> getValueImpl;
     float (*getValueImpl)(); // Arduino does not support function<> template

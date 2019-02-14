@@ -156,7 +156,6 @@ namespace automation {
 
   class Constraints : public AttributeContainerVector<Constraint*> {
 
-    // way to avoid linking complicatons since arduino and non-arduino builds may link individual cpp differently
     static uint64_t& pauseEndTimeMs() {
       static uint64_t pauseEndTimeMs = automation::millisecs64();
       return pauseEndTimeMs;

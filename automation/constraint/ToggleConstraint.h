@@ -8,8 +8,10 @@ namespace automation {
 
   class ToggleStateConstraint : public Constraint {
   public:
-    RTTI_GET_TYPE_IMPL(automation,ToggleState)
+    RTTI_GET_TYPE_IMPL(automation,ToggleState);
+
     Toggle *pToggle;
+    
     bool bAcceptState;
 
     explicit ToggleStateConstraint(Toggle *pToggle, bool bAcceptState = true) : pToggle(pToggle),
