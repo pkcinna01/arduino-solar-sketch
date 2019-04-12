@@ -52,7 +52,7 @@ ThermistorSensor charger1Temp("Charger 1 Temp",0),
                  atticTemp("Attic Temp",3),
                  inverterTemp("Inverter Temp",4);
 
-LightSensor lightLevel("Sunshine Level",5);                 
+LightSensor lightLevel("Sunlight",5);                 
                 
 Dht dht(5);
 DhtTempSensor enclosureTempDht("Enclosure Temp (DHT)",dht);
@@ -132,7 +132,7 @@ Sensors sensors {{
     &charger1Temp, &charger2Temp, &inverterTemp, //&sunroomTemp, 
     &exhaustFan.toggleSensor, &chargerGroupFan.toggleSensor, 
     &inverterFan.toggleSensor, &inverterSwitch.toggleSensor,
-    //&batteryBankASwitch.toggleSensor, &batteryBankBSwitch.toggleSensor,
+    &batteryBankASwitch.toggleSensor, &batteryBankBSwitch.toggleSensor,
     &outlet1Switch.toggleSensor, &outlet2Switch.toggleSensor,    
     &lightLevel
 }};

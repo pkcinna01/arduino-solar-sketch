@@ -34,7 +34,7 @@ namespace arduino {
     }
 
     void setOn(bool bOn) override {
-      //cout << __PRETTY_FUNCTION__ << " bOn=" << bOn << endl;
+      //cout << __PRETTY_FUNCTION__ << name << " bOn=" << bOn << endl;
       digitalWrite(relayPin,bOn?onValue:!onValue);
     }
 

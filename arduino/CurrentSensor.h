@@ -59,6 +59,7 @@ public:
     float rtnAmps = 0;
 
     int shuntADC = -1;
+    //cout << __PRETTY_FUNCTION__ << " begin" << endl;
     for ( int i = 0; i < 3 && shuntADC < 0; i++ ) {
       shuntADC = readADC(50);
     }
@@ -78,10 +79,12 @@ public:
       double milliVolts = shuntADC * getMilliVoltIncrement();
       rtnAmps = milliVolts / getRatedMilliOhms();
     }
+    //cout << __PRETTY_FUNCTION__ << " done" << endl;
     return rtnAmps;
   }
 
   virtual int16_t readADC(int delayMs = 0) const {
+    //cout << __PRETTY_FUNCTION__ << " begin" << endl;
     delay(delayMs);
 
     int16_t adc;
@@ -95,6 +98,7 @@ public:
     } else {
       adc = INVALID_CHANNEL;
     }
+    //cout << __PRETTY_FUNCTION__ << " done" << endl;
     return adc;
   }
 
