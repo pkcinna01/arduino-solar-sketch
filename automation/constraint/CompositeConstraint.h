@@ -21,7 +21,7 @@ namespace automation {
 
     string getTitle() const override {
       string title = "(";
-      for (int i = 0; i < children.size(); i++) {
+      for (size_t i = 0; i < children.size(); i++) {
         title += children[i]->getTitle();
         if (i + 1 < children.size()) {
           title += " ";

@@ -29,7 +29,7 @@ namespace automation {
 
     virtual bool checkValue(const ValueT &val) = 0;
 
-    void printValueSourceObj(json::JsonStreamWriter& w,const char* pszKey, const char* pszSeparator = "", bool bVerbose=false) const {
+    void printValueSourceObj(json::JsonStreamWriter& w,const char* pszKey, const char* pszSeparator = "") const {
       w.printKey(pszKey);
       w.noPrefixPrintln("{");
       w.increaseDepth();
@@ -37,12 +37,13 @@ namespace automation {
       w.printlnStringObj(F("type"),this->valueSource.getType().c_str(),",");
       w.printlnNumberObj(F("value"),this->valueSource.getValue());
       w.decreaseDepth();
-      w.print("},");
+      w.print("}");
+      w.print(pszSeparator);
     }
 
-    void printlnValueSourceObj(json::JsonStreamWriter& w,const char* pszKey, const char* pszSeparator = "", bool bVerbose=false) const {
-      printValueSourceObj(w,pszKey,pszSeparator,bVerbose);
-      w.noPrefixPrintln("");
+    void printlnValueSourceObj(json::JsonStreamWriter& w,const char* pszKey, const char* pszSeparator = "") const {
+      printValueSourceObj(w,pszKey);
+      w.noPrefixPrintln(pszSeparator);
     }
 
   protected:

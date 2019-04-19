@@ -123,13 +123,13 @@ namespace arduino {
       //cout << __PRETTY_FUNCTION__ << " command: " << pszCmd << "." << endl;
       char *pszCmdName = strtok(pszCmd, ", ");
       if (!strcasecmp_P(pszCmdName, PSTR("setup")) || !strcasecmp_P(pszCmdName, PSTR("eeprom"))) {
-        respCode = processSetupCommand(bVerbose);
+        respCode = processSetupCommand();
       } else if (!strcasecmp_P(pszCmdName, PSTR("RESET"))) {
         arduino::watchdog::resetRequested = true;
         beginResp() + F("Reset requested");
         endResp(0);
       } else if (!strcasecmp_P(pszCmdName, PSTR("SET"))) {
-        respCode = processSetCommand(bVerbose);
+        respCode = processSetCommand();
       } else if (!strcasecmp_P(pszCmdName, PSTR("GET"))) {
         respCode = processGetCommand(bVerbose);
       } else if (!strcasecmp_P(pszCmdName, PSTR("INCLUDE"))) {
@@ -143,14 +143,14 @@ namespace arduino {
       } else if (!strcasecmp_P(pszCmdName, PSTR("PAUSE")) || !strcasecmp_P(pszCmdName, PSTR("RESUME")) ) {
         bool bPause = !strcasecmp_P(pszCmdName, PSTR("PAUSE"));
         if ( !bPause ) {
-          Constraints::setPauseEndTimeMs(automation::millisecs64());
+          Constraints::pauseEndTimer().expire();
         } else {
           const char* pszSeconds = strtok(NULL, "\r\n");
           if ( pszSeconds == nullptr ) {
-            Constraints::setPauseEndTimeMs(0); // zero for no pause end
+            Constraints::pauseEndTimer().setMaxDurationMs(0).reset(); // using zero duration as flag for disabled to save space
           } else {
             unsigned long seconds = atol(pszSeconds);
-            Constraints::setPauseEndTimeMs(automation::millisecs64()+1000ull*seconds);
+            Constraints::pauseEndTimer().setMaxDurationAsSeconds(seconds).reset();
           }
         }
         writer.println("{").increaseDepth();
@@ -261,7 +261,6 @@ namespace arduino {
             writer + F("ID required for GET of ") + pszArg + ".";
             respCode = INVALID_ARGUMENT;
           } else {
-            long id = atol(pszId);
             if( !strcasecmp_P(pszArg, PSTR("SENSOR")) ) {
               sensors.findByIds(ids,resultVec);
             } else if( !strcasecmp_P(pszArg, PSTR("CONSTRAINT")) ) {
@@ -324,7 +323,7 @@ namespace arduino {
     // SET //
     /////////
 
-    int processSetCommand(bool bVerbose) {
+    int processSetCommand() {
       int respCode = 0;
 
       writer.println("{").increaseDepth();
@@ -423,7 +422,7 @@ namespace arduino {
         for (AttributeContainer *pAttrContainer : filteredVec) {
           SetCode code = pAttrContainer->setAttribute(pszKey,pszVal,&ss);
           if ( code != SetCode::Ignored && rtn != SetCode::Error ) {
-            rtn = code;
+            rtn = code; // continue if errors but keep 'rtn' as error for client
           }
         }
         if (rtn==SetCode::OK) {
@@ -454,7 +453,7 @@ namespace arduino {
     // SETUP (EEPROM) //
     ////////////////////
 
-    int processSetupCommand(bool bVerbose) {
+    int processSetupCommand() {
       int respCode = 0;
       const char *pszAction = strtok(NULL, ", \r\n");
 

@@ -23,9 +23,10 @@ namespace automation {
         Sensor(pToggle->getDeviceName()),
         pToggle(pToggle)
     {
+      setCanSample(false); 
     }
 
-    float getValue() const override {
+    float getValueImpl() const override {
       return pToggle->asBoolean();
     }
 

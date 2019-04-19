@@ -20,7 +20,7 @@ namespace automation {
 
     Constraint *pConstraint = nullptr;
     vector<Capability *> capabilities;
-    bool bError;
+    mutable bool bError;
 
     Device(const string &name) :
         NamedContainer(name), pConstraint(nullptr), bError(false) {

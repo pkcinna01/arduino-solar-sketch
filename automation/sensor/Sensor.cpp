@@ -9,7 +9,7 @@ using namespace automation::json;
 namespace automation {
 
   float Sensor::average(const vector<Sensor*>& sensors) {
-    float total, sensorCnt = sensors.size();
+    float total = 0, sensorCnt = sensors.size();
     for ( Sensor* s : sensors) total += s->getValue();
     return total/sensorCnt;
   }

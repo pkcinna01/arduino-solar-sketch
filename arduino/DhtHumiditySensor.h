@@ -13,11 +13,10 @@ class DhtHumiditySensor : public DhtSensor {
 
   RTTI_GET_TYPE_IMPL(arduino,DhtHumiditySensor)
  
-  float getValueImpl() const override {
-    if ( isCacheExpired() ) {
-      cacheValue(dht.readHumidity());
-    } 
-    return cachedValue;
+  float getValueImpl() const override {    
+    float rtnHumidity = dht.readHumidity();
+    status = dht.status;
+    return rtnHumidity;
   }
 };
 }

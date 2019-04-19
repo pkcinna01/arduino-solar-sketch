@@ -27,8 +27,8 @@ public:
     }
   }
 
-  VoltageSensor(const char *name, int analogPin, float r1 = 1000000.0, float r2 = 100000.0, float maxVccAgeMs = 60000) :
-      AnalogSensor(name, analogPin, 10 /*sample cnt*/),
+  VoltageSensor(const char *name, int analogPin, float r1 = 1000000.0, float r2 = 100000.0, float maxVccAgeMs = 15000) :
+      AnalogSensor(name, analogPin, 20, 30),
       r1(r1),
       r2(r2),
       maxVccAgeMs(maxVccAgeMs) {

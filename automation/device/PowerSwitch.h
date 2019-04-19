@@ -21,12 +21,12 @@ public:
   {
     PowerSwitchToggle(PowerSwitch *pPowerSwitch) : Toggle(pPowerSwitch), pPowerSwitch(pPowerSwitch){};
     PowerSwitch *pPowerSwitch;
-    double getValueImpl() const override
+    float getValueImpl() const override
     {
       //cout << __PRETTY_FUNCTION__ << endl;
-      return (double)pPowerSwitch->isOn();
+      return (float)pPowerSwitch->isOn();
     }
-    bool setValueImpl(double val) override
+    bool setValueImpl(float val) override
     {
       //cout << __PRETTY_FUNCTION__ << "=" << val << endl;
       pPowerSwitch->setOn(val != 0);
@@ -36,7 +36,7 @@ public:
 
   ToggleSensor toggleSensor; // allow the switch state to be seen as a sensor
 
-  PowerSwitch(const string &name, float requiredWatts = 0) : Device(name), toggle(this), toggleSensor(&toggle), requiredWatts(requiredWatts)
+  PowerSwitch(const string &name, float requiredWatts = 0) : Device(name), requiredWatts(requiredWatts), toggle(this), toggleSensor(&toggle)
   {
     capabilities.push_back(&toggle);
   }
@@ -51,7 +51,7 @@ public:
   }
 
   virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override {
-    SetCode rtn = NamedContainer::setAttribute(pszKey,pszVal,pRespStream);
+    SetCode rtn = Device::setAttribute(pszKey,pszVal,pRespStream);
     if ( rtn == SetCode::Ignored ) {
       if ( !strcasecmp_P(pszKey,PSTR("ON")) ) {
         if ( pConstraint && !pConstraint->isRemoteCompatible() ) {

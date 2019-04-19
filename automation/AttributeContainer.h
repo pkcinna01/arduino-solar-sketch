@@ -102,6 +102,7 @@ namespace automation {
           }
         }
       }
+      return resultVec;
     }
 
     template<typename ResultContainerT>

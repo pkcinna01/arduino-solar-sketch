@@ -156,22 +156,16 @@ namespace automation {
 
   class Constraints : public AttributeContainerVector<Constraint*> {
 
-    static uint64_t& pauseEndTimeMs() {
-      static uint64_t pauseEndTimeMs = automation::millisecs64();
-      return pauseEndTimeMs;
-    };
-
   public:
     
-    static bool isPaused() {
-      uint64_t endTimeMs = pauseEndTimeMs();
-      bool bPaused = endTimeMs == 0 || automation::millisecs64() < endTimeMs;
-      return bPaused;
-    }
+    static DurationTimer& pauseEndTimer() {
+      static DurationTimer pauseEndTimer(0);
+      return pauseEndTimer;
+    };
 
-    static void setPauseEndTimeMs(uint64_t newPauseEndTimeMs) {
-      uint64_t& endTimeMs = pauseEndTimeMs();
-      endTimeMs = newPauseEndTimeMs;
+    static bool isPaused() {
+      DurationTimer& timer = pauseEndTimer();
+      return timer.getMaxDurationMs() != 0 && !timer.isExpired();
     }
 
     Constraints(){}

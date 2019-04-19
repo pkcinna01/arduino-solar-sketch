@@ -40,7 +40,7 @@ public:
   CurrentSensor(const char *name,
                 RatedAmps ratedAmps = RATED_200_AMPS,
                 MilliVoltDrop ratedMillivolts = MILLIVOLTS_75,
-                Channel channel = /*CHANNEL_A0*/DIFFERENTIAL_0_1, adsGain_t gain = /*GAIN_EIGHT*/GAIN_SIXTEEN) :
+                Channel channel = /*CHANNEL_A0*/DIFFERENTIAL_0_1, adsGain_t gain = GAIN_EIGHT /*GAIN_SIXTEEN*/) :
       ArduinoSensor(name,/*no pin*/0), // using ArduinoSensor for "status" functionality even though there is no digital or analog pin
       ratedAmps(ratedAmps),
       ratedMillivolts(ratedMillivolts),
@@ -51,7 +51,7 @@ public:
   void setup() override {
     ads.setGain(gain);    
     ads.begin();
-    bInitialized = true;
+    setInitialized(true);
   }
 
   float getValueImpl() const override {
@@ -62,9 +62,9 @@ public:
   virtual float readAmps() const {
     float rtnAmps = 0;
 
-    int shuntADC = -1;
+    int16_t shuntADC = -1;
     for ( int i = 0; i < 3 && shuntADC < 0; i++ ) {
-      shuntADC = readADC(50);
+      shuntADC = readADC(i==0?0:75);
     }
     /*if (shuntADC < 0) {
       status.error( __PRETTY_FUNCTION__ );
@@ -89,7 +89,7 @@ public:
     delay(delayMs);
 
     int16_t adc;
-    if (channel >= CHANNEL_A0 && channel <= CHANNEL_A3) {
+    if (channel <= CHANNEL_A3) {
       adc = ads.readADC_SingleEnded(channel);
     } else if (channel == DIFFERENTIAL_0_1) {
       adc = ads.readADC_Differential_0_1();

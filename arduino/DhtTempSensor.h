@@ -14,11 +14,9 @@ class DhtTempSensor : public DhtSensor {
   RTTI_GET_TYPE_IMPL(arduino,DhtTempSensor)
  
   float getValueImpl() const override {    
-    if ( isCacheExpired() || status.code != 0 ) {
-      cacheValue(dht.readTemp());
-      status = dht.status;
-    } 
-    return cachedValue;
+    float rtnTemp = dht.readTemp();
+    status = dht.status;
+    return rtnTemp;
   }
 
 };

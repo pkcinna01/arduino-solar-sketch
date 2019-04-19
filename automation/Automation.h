@@ -48,12 +48,12 @@ namespace automation {
   static bool bSynchronizing = false;
 
   unsigned long millisecs();
-  
+
   // TODO: review calls to 32 bit millisecs() and consider 64 bit version if rollover impacts computations
   #ifdef ARDUINO_APP
   static uint64_t millisecs64() { 
-    static unsigned long msbs = 0;
-    static unsigned long lastMillis = 0;
+    static uint64_t msbs = 0;
+    static uint64_t lastMillis = 0;
     unsigned long ms = millisecs();
     if ( ms < lastMillis ) {
       // assume rollover...
@@ -70,6 +70,57 @@ namespace automation {
     return millisecs();
   }
   #endif
+
+  //template <typename TimerVal>
+  typedef uint64_t TimerVal;
+
+  class Timer {
+    public:
+    Timer(TimerVal startTimeMs = 0) : 
+      startTimeMs(startTimeMs)
+    {      
+    }
+    
+    void expire() { startTimeMs = 0; }
+
+    void reset() { startTimeMs = millisecs64(); }
+
+    bool haveStartTime() const { return startTimeMs != 0; }
+
+    bool isExpiredMs(TimerVal durationMs) const {
+      return !haveStartTime() || getElapsedDurationMs() > durationMs;
+    }
+
+    TimerVal getElapsedDurationMs() const { 
+      return getElapsedDurationMs(millisecs64());
+    }
+
+    TimerVal getElapsedDurationMs(TimerVal sinceTimeMs) const { 
+      return sinceTimeMs - startTimeMs;
+    }
+
+    protected:
+    TimerVal startTimeMs;
+  };
+
+  //template <typename TimerVal>
+  class DurationTimer : public Timer {
+    public:
+    DurationTimer(TimerVal maxDurationMs, TimerVal startTimeMs = 0) : 
+      Timer(startTimeMs),
+      maxDurationMs(maxDurationMs) 
+    {      
+    }
+    
+    bool isExpired() const { return Timer::isExpiredMs(maxDurationMs); }
+    TimerVal getMaxDurationMs() const { return maxDurationMs; }
+    DurationTimer& setMaxDurationMs(TimerVal maxDurationMs) { this->maxDurationMs = maxDurationMs; return *this; }
+    DurationTimer& setMaxDurationAsSeconds(TimerVal maxDurationSeconds) { this->maxDurationMs = maxDurationMs*1000; return *this; }
+
+    protected:
+    TimerVal maxDurationMs;
+
+  };
 
   void sleep(unsigned long intervalMs);
 

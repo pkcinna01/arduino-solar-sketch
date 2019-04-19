@@ -11,7 +11,8 @@ using namespace arduino;
 struct Status {
 
   String msg;
-  int code;
+
+  int code { 0 };
 
   String& error(const char* msg, int code = -1) {
     this->code = code;

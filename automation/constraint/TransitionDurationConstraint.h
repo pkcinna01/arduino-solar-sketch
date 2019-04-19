@@ -46,7 +46,7 @@ class TransitionDurationConstraint : public Constraint {
 
     string getTitle() const override {
       stringstream ss;
-      ss << "TransitionDuration(" << minIntervalMs << ',' << pCapability->getTitle() << " " << originValue << "-->" << destinationValue << ")";
+      ss << "TransitionDuration(" << minIntervalMs << ',' << pCapability->getTitle() << " " << originValue << F("-->") << destinationValue << ")";
       return ss.str();
     }
 

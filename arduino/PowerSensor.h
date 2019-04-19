@@ -22,18 +22,19 @@ namespace arduino {
         Sensor(name),
         pVoltageSensor(pVoltageSensor),
         pCurrentSensor(pCurrentSensor) {
+          setCanSample(false); 
     }
 
-    float getValue() const override {
+    float getValueImpl() const override {
       float watts = pVoltageSensor->getValue() * pCurrentSensor->getValue();
       return watts;
     }
 
     void setup() override {
-      if ( !bInitialized ) {
+      if ( !isInitialized() ) {
         pVoltageSensor->setup();
         pCurrentSensor->setup();
-        bInitialized = true;
+        setInitialized(true);
       }
     }
 

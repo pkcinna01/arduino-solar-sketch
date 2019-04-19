@@ -25,6 +25,7 @@ namespace automation {
         sensors(sensors),
         getValueFn(getValueFn)
     {
+      setCanSample(false); 
     }
 
     virtual void setup()
@@ -32,7 +33,7 @@ namespace automation {
       for( Sensor* s : sensors ) s->setup();
     }
 
-    virtual float getValue() const
+    virtual float getValueImpl() const
     {
       return getValueFn(sensors);
     }

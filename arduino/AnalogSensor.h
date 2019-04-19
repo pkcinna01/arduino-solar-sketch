@@ -12,9 +12,9 @@ public:
   }
 
   void setup() override {
-    if ( !bInitialized ) {
+    if ( !isInitialized() ) {
       pinMode(sensorPin, INPUT);
-      bInitialized = true;
+      setInitialized(true);
     }
   }
 

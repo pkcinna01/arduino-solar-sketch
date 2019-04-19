@@ -13,22 +13,18 @@ class ArduinoSensor : public automation::Sensor {
 public:
 
   uint8_t sensorPin;
-  uint16_t sampleCnt;
-  uint16_t sampleIntervalMs;
 
   mutable Status status;
 
-  ArduinoSensor(const char* const name, uint8_t sensorPin, uint16_t sampleCnt=1, uint16_t sampleIntervalMs=25)
-      : Sensor(name), sensorPin(sensorPin), sampleCnt(sampleCnt), sampleIntervalMs(sampleIntervalMs)
+  ArduinoSensor(const char* const name, uint8_t sensorPin, uint16_t sampleCnt=1, uint16_t sampleIntervalMs=35)
+      : Sensor(name,sampleCnt,sampleIntervalMs), sensorPin(sensorPin)
   {
   }
 
-  float getValue() const override {
-    status.reset();
-    return sample(this, &ArduinoSensor::getValueImpl, sampleCnt, sampleIntervalMs);
+  void reset() override { 
+    automation::Sensor::reset();
+    status.reset(); 
   }
-
-  virtual float getValueImpl() const = 0;
 
   virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr){
     SetCode rtn = Sensor::setAttribute(pszKey,pszVal,pRespStream);

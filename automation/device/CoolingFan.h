@@ -58,7 +58,7 @@ namespace automation {
       minTemp.setFailMargin( minTemp.pThreshold->getValue() - offTemp);
     }
 
-    float getOffTemp() { 
+    float getOffTemp() const { 
       return minTemp.pThreshold->getValue() - minTemp.getFailMargin();
     }
 

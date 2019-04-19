@@ -1,13 +1,11 @@
 #define ARDUINO_APP
-#define VERSION "SOLAR-1.43"
+#define VERSION "SOLAR-1.45"
 #define BUILD_NUMBER 1
 #define BUILD_DATE __DATE__
 
 #include <EEPROM.h>
 #include <Wire.h>
 #include <ArduinoSTL.h>
-
-//#include <MemoryUsage.h>
 
 // automation includes not specific to arduino
 #include "automation/Automation.h"
@@ -49,30 +47,39 @@ using namespace automation;
 using namespace std;
 using namespace arduino;
 
-ThermistorSensor charger1Temp("Charger 1 Temp", 0),
-                 charger2Temp("Charger 2 Temp", 1),
-                 sunroomTemp("Sunroom Temp", 2),
-                 atticTemp("Attic Temp", 3),
-                 inverterTemp("Inverter Temp", 4);
+const uint8_t commandBuffSize = 200;
+static char commandBuff[commandBuffSize+1];
 
-LightSensor lightLevel("Sunshine", 5);
+// PMSTR is used to initialize names from PROGMEM to save runtime RAM space
+// PROGMEM needs to be in scope of a function so using a lambda to create a local temp area
+#define PMSTR(name) []() -> char* { static const char x[] PROGMEM = {name}; \
+  strncpy_P(commandBuff,x,commandBuffSize); commandBuff[commandBuffSize] = '\0'; \
+  return (char*) commandBuff; }()
+
+ThermistorSensor charger1Temp(PMSTR("Charger 1 Temp"), 0),
+                 charger2Temp(PMSTR("Charger 2 Temp"), 1),
+                 //sunroomTemp(PMSTR("Sunroom Temp"), 2),
+                 atticTemp(PMSTR("Attic Temp"), 3),
+                 inverterTemp(PMSTR("Inverter Temp"), 4);
+
+LightSensor lightLevel(PMSTR("Sunshine"), 5);
 
 Dht dht(5);
-DhtTempSensor enclosureTempDht("Enclosure Temp (DHT)", dht);
-ThermistorSensor enclosureTemp("Enclosure Temp", 6);
-DhtHumiditySensor enclosureHumidityDht("Enclosure Humidity", dht);
-VoltageSensor batteryBankVoltage("Battery Bank Voltage", 9, 1016000, 101100);
-VoltageSensor batteryBankBVoltage("Bank B Voltage", 10, 1016000, 101100);
+DhtTempSensor enclosureTempDht(PMSTR("Enclosure Temp (DHT)"), dht);
+ThermistorSensor enclosureTemp(PMSTR("Enclosure Temp"), 6);
+DhtHumiditySensor enclosureHumidityDht(PMSTR("Enclosure Humidity"), dht);
+VoltageSensor batteryBankVoltage(PMSTR("Battery Bank Voltage"), 9, 1016000, 101100);
+VoltageSensor batteryBankBVoltage(PMSTR("Bank B Voltage"), 10, 1016000, 101100);
 vector<Sensor*> mainAndBankBDelta { &batteryBankVoltage, &batteryBankBVoltage };
-CompositeSensor batteryBankAVoltage("Bank A Voltage", mainAndBankBDelta, Sensor::delta);
-CurrentSensor batteryBankCurrent("Bank Current");
-PowerSensor batteryBankPower("Battery Bank Power", &batteryBankVoltage, &batteryBankCurrent);
+CompositeSensor batteryBankAVoltage(PMSTR("Bank A Voltage"), mainAndBankBDelta, Sensor::delta);
+CurrentSensor batteryBankCurrent(PMSTR("Bank Current"));
+PowerSensor batteryBankPower(PMSTR("Battery Bank Power"), &batteryBankVoltage, &batteryBankCurrent);
 vector<Sensor*> chargerGrpSensors { &charger1Temp, &charger2Temp };
-CompositeSensor chargerGroupTemp("Charger Group Temp", chargerGrpSensors, Sensor::maximum);
+CompositeSensor chargerGroupTemp(PMSTR("Chargers Temp"), chargerGrpSensors, Sensor::maximum);
 
-arduino::CoolingFan exhaustFan("Enclosure Fan", 22, enclosureTemp, 95, 90, LOW);
-arduino::CoolingFan chargerGroupFan("Chargers Fan", 23, chargerGroupTemp, 110, 105, LOW);
-arduino::CoolingFan inverterFan("Inverter Fan", 24, inverterTemp, 110, 105, LOW);
+arduino::CoolingFan exhaustFan(PMSTR("Enclosure Fan"), 22, enclosureTemp, 95, 90, LOW);
+arduino::CoolingFan chargerGroupFan(PMSTR("Chargers Fan"), 23, chargerGroupTemp, 110, 105, LOW);
+arduino::CoolingFan inverterFan(PMSTR("Inverter Fan"), 24, inverterTemp, 110, 105, LOW);
 
 struct MinBatteryBankVoltage : AtLeast<float, Sensor&> {
   MinBatteryBankVoltage(float volts) : AtLeast(volts, batteryBankVoltage) {
@@ -82,14 +89,9 @@ struct MinBatteryBankVoltage : AtLeast<float, Sensor&> {
 struct MinBatteryBankVoltage outletsMinSteadySupplyVoltage(23);
 struct MinBatteryBankVoltage outletsMinDipSupplyVoltage(21.5);
 
-//struct MaxBatteryBankPower : AtMost<float,Sensor&> {
-//  MaxBatteryBankPower(float watts) : AtMost(watts, batteryBankPower) {
-//  }
-//};
-
 struct InverterSwitch : public arduino::PowerSwitch {
   BooleanConstraint defaultOff {false};
-  InverterSwitch() : arduino::PowerSwitch("Inverter Switch", 25, LOW) {
+  InverterSwitch() : arduino::PowerSwitch(PMSTR("Inverter Switch"), 25, LOW) {
     setConstraint(&defaultOff);
   }
   RTTI_GET_TYPE_IMPL(main, InverterSwitch)
@@ -101,7 +103,7 @@ struct BatteryBankSwitch : public arduino::PowerSwitch {
     setConstraint(&defaultOff);
   }
   RTTI_GET_TYPE_IMPL(main, BatteryBankSwitch)
-} batteryBankASwitch("Bank A Switch", 26), batteryBankBSwitch("Bank B Switch", 27);
+} batteryBankASwitch(PMSTR("Bank A Switch"), 26), batteryBankBSwitch("Bank B Switch", 27);
 
 struct OutletSwitch : public arduino::PowerSwitch {
   AndConstraint constraints { {&outletsMinSteadySupplyVoltage, &outletsMinDipSupplyVoltage} };
@@ -113,11 +115,11 @@ struct OutletSwitch : public arduino::PowerSwitch {
 };
 
 struct Outlet1Switch : public OutletSwitch {
-  Outlet1Switch() : OutletSwitch("Outlet 1", 30) {}
+  Outlet1Switch() : OutletSwitch(PMSTR("Outlet 1"), 30) {}
 } outlet1Switch;
 
 struct Outlet2Switch : public OutletSwitch {
-  Outlet2Switch() : OutletSwitch("Outlet 2", 31) {}
+  Outlet2Switch() : OutletSwitch(PMSTR("Outlet 2"), 31) {}
 } outlet2Switch;
 
 
@@ -145,6 +147,8 @@ Sensors sensors {{
 void setup() {
 
   unsigned long serialSpeed = 38400;
+  //unsigned long serialSpeed = 57600;
+  //unsigned int serialConfig = SERIAL_8O1;
   unsigned int serialConfig = SERIAL_8N1;
   
   String version;
@@ -182,12 +186,12 @@ void setup() {
   }
 
   arduino::watchdog::enable();
+  commandBuff[0] = '\0';
 }
 
 void loop() {
   static unsigned long lastUpdateTimeMs = 0, beginCmdReadTimeMs = 0;
   static unsigned int updateIntervalMs = 10000;
-  static char commandBuff[200];
   static size_t bytesRead = 0;
 
   bool msgSizeExceeded = false;
@@ -209,21 +213,25 @@ void loop() {
       commandBuff[bytesRead] = '\0';
       cmdReady = true;
       break;
-    } else if ( bytesRead >= sizeof commandBuff ) {
+    } else if ( bytesRead >= commandBuffSize ) {
       commandBuff[bytesRead - 1] = '\0';
       msgSizeExceeded = true;
       break;
     }
   }
 
-  if ( cmdReady && strlen(commandBuff) || (currentTimeMs - lastUpdateTimeMs) > updateIntervalMs )
+  if ( (cmdReady && strlen(commandBuff)) || (currentTimeMs - lastUpdateTimeMs) > updateIntervalMs )
   {
-    if ( Constraints::isPaused() == false ) {
+    sensors.reset(); // clear cached values
+    sensors.getValuesBySampling(); // save time by sampling in parallel
+    
+    if ( !Constraints::isPaused() ) {      
       for (Device* pDevice : devices) {
         bool bIgnoreSameResult = false; // this will override remote changes if constraint mode is not REMOTE
         pDevice->applyConstraint(bIgnoreSameResult);
       }
     }
+    
     lastUpdateTimeMs = currentTimeMs;
   } else if ( beginCmdReadTimeMs > 0 && (currentTimeMs - beginCmdReadTimeMs) > updateIntervalMs ) {
     msgReadTimedOut = true;

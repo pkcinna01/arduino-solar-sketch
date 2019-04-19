@@ -70,8 +70,8 @@ using DeviceIdType = unsigned int;
       return *this;
     }
 
-    unsigned int getCommandCount() {
-      unsigned int cmdCnt;
+    int getCommandCount() {
+      int cmdCnt;
       EEPROM.get(CMD_COUNT_OFFSET, cmdCnt);
       return cmdCnt;
     }
@@ -137,10 +137,10 @@ using DeviceIdType = unsigned int;
     }
 
     int removeCommandAt(int index) {
-      if (index < 0 || index >= getCommandCount()) {
+      int cmdCnt = getCommandCount();
+      if (index < 0 || index >= cmdCnt) {
         return INDEX_OUT_OF_BOUNDS;
       }
-      size_t cmdCnt = getCommandCount();
       for( int i = index; i < cmdCnt-1; i++ ) {
         String cmd;
         getCommandAt(i+1,cmd);
@@ -158,7 +158,7 @@ using DeviceIdType = unsigned int;
       if ( !cmd ) {
         return NULL_ARGUMENT;
       }
-      size_t cmdCnt = getCommandCount();
+      int cmdCnt = getCommandCount();
       if ( index == -1 ) {
         index = cmdCnt; // append 
       } else if ( index < 0 || index > cmdCnt ) {
@@ -189,7 +189,7 @@ using DeviceIdType = unsigned int;
       if ( !searchPattern ) {
         return NULL_ARGUMENT;
       }
-      size_t cmdCnt = getCommandCount();
+      int cmdCnt = getCommandCount();
       for( int i = 0; i < cmdCnt; i++ ) {
         String cmd;
         getCommandAt(i,cmd);

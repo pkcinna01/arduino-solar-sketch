@@ -10,31 +10,17 @@ class DhtSensor : public ArduinoSensor {
   
   Dht& dht;
   
-  mutable float cachedValue;
-
-  mutable unsigned long lastReadTimeMs;
-
   DhtSensor(const char* const name, Dht& dht) :
-    ArduinoSensor(name,dht.sensorPin),
+    ArduinoSensor(name,dht.sensorPin,1),
     dht(dht)
   {    
   }
 
   void setup() override {
-    if ( !bInitialized ) {
+    if ( !isInitialized() ) {
       dht.begin();
-      bInitialized = true;
+      setInitialized(true);
     }
-  }
-
-  bool isCacheExpired() const {
-    return (automation::millisecs() - lastReadTimeMs) > 2100;
-  }
-
-  float cacheValue(float value) const {
-    lastReadTimeMs = automation::millisecs();
-    cachedValue = value;
-    return cachedValue;
   }
   
 };

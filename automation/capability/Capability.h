@@ -13,13 +13,13 @@ using namespace std;
 
 namespace automation {
 
-  // Try to handle any value type but lean on double for now
+  // Try to handle any value type but lean on float for now
   //
   class Capability : public AttributeContainer {
 
   public:
 
-    double value = 0;
+    float value = 0;
 
     static std::set<Capability*>& all(){
       static std::set<Capability*> all;
@@ -34,16 +34,16 @@ namespace automation {
     virtual ~Capability() {
       all().erase(this);
     }
-    virtual double getValueImpl() const = 0;
-    virtual bool setValueImpl(double dVal) = 0;
+    virtual float getValueImpl() const = 0;
+    virtual bool setValueImpl(float dVal) = 0;
     RTTI_GET_TYPE_DECL;
 
-    virtual double getValue() const {
+    virtual float getValue() const {
       return getValueImpl();
     }
 
-    virtual bool setValue(double newVal) {
-      double oldVal = getValue();
+    virtual bool setValue(float newVal) {
+      float oldVal = getValue();
       bool bOk = setValueImpl(newVal);
       if ( bOk ) {
         notifyValueSetListeners(newVal,oldVal);
@@ -60,30 +60,30 @@ namespace automation {
     }
 
     bool setValue(bool bVal) {
-      return setValue( (double) (bVal ? 1.0 : 0) );
+      return setValue( (float) (bVal ? 1.0 : 0) );
     };
 
     virtual bool setValue(const string& strVal) {
       std::istringstream ss(strVal);
-      double d;
+      float d;
       if (ss >> d ) {
         return setValue(d);
       } else {
-        logBuffer << F("WARNING ") << __PRETTY_FUNCTION__ <<  F(" failed parsing ") << strVal << F(" to double.") << endl;
+        logBuffer << F("WARNING ") << __PRETTY_FUNCTION__ <<  F(" failed parsing ") << strVal << F(" to float.") << endl;
         return false;
       }
     }
 
     virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override;
 
-    virtual void notifyValueSetListeners(double newVal, double oldVal) {
+    virtual void notifyValueSetListeners(float newVal, float oldVal) {
       for( CapabilityListener* pListener : listeners) {
         pListener->valueSet(this,newVal,oldVal);
       }
     };
 
     struct CapabilityListener {
-      virtual void valueSet(const Capability* pCapability, double newVal, double oldVal) = 0;
+      virtual void valueSet(const Capability* pCapability, float newVal, float oldVal) = 0;
     };
 
     vector<CapabilityListener*> listeners;

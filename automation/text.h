@@ -4,6 +4,7 @@
 #include <string.h>
 #include <string>
 #include <sstream>
+#include <algorithm>
 
 #ifdef ARDUINO_APP
 #define RVSTR(str) String(F(str)).c_str()
@@ -38,6 +39,12 @@ std::string boolAsString(const T &t)
 static bool parseBool(const char *pszVal)
 {
   return !strcasecmp_P(pszVal, PSTR("ON")) || !strcasecmp_P(pszVal, PSTR("TRUE")) || !strcasecmp_P(pszVal, PSTR("YES")) || atoi(pszVal) > 0;
+}
+
+static inline void rtrim(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](int ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
 }
 
 struct WildcardMatcher

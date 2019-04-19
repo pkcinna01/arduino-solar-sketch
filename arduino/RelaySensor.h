@@ -19,10 +19,9 @@ public:
   RTTI_GET_TYPE_IMPL(arduino,RelaySensor)
  
   void setup() override {
-    //cout << __PRETTY_FUNCTION__ << endl;
-    if ( !bInitialized ) {
+    if ( !isInitialized() ) {
       pinMode(sensorPin, OUTPUT); // TBD - actual relay in device will call pinMode=OUTPUT too
-      bInitialized = true;
+      setInitialized(true);
     }
   }
 
