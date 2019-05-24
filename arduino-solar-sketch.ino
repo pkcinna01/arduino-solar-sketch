@@ -1,6 +1,6 @@
 #define ARDUINO_APP
 #define VERSION "SOLAR-1.45"
-#define BUILD_NUMBER 1
+#define BUILD_NUMBER 2
 #define BUILD_DATE __DATE__
 
 #include <EEPROM.h>
@@ -59,15 +59,15 @@ static char commandBuff[commandBuffSize+1];
 ThermistorSensor charger1Temp(PMSTR("Charger 1 Temp"), 0),
                  charger2Temp(PMSTR("Charger 2 Temp"), 1),
                  //sunroomTemp(PMSTR("Sunroom Temp"), 2),
-                 atticTemp(PMSTR("Attic Temp"), 3),
+                 //atticTemp(PMSTR("Attic Temp"), 3),
                  inverterTemp(PMSTR("Inverter Temp"), 4);
 
-LightSensor lightLevel(PMSTR("Sunshine"), 5);
+//LightSensor lightLevel(PMSTR("Sunshine"), 5);
 
 Dht dht(5);
-DhtTempSensor enclosureTempDht(PMSTR("Enclosure Temp (DHT)"), dht);
+//DhtTempSensor enclosureTempDht(PMSTR("Enclosure Temp (DHT)"), dht); // not enough power to have DHT running and all relays
 ThermistorSensor enclosureTemp(PMSTR("Enclosure Temp"), 6);
-DhtHumiditySensor enclosureHumidityDht(PMSTR("Enclosure Humidity"), dht);
+//DhtHumiditySensor enclosureHumidityDht(PMSTR("Enclosure Humidity"), dht);
 VoltageSensor batteryBankVoltage(PMSTR("Battery Bank Voltage"), 9, 1016000, 101100);
 VoltageSensor batteryBankBVoltage(PMSTR("Bank B Voltage"), 10, 1016000, 101100);
 vector<Sensor*> mainAndBankBDelta { &batteryBankVoltage, &batteryBankBVoltage };
@@ -76,10 +76,14 @@ CurrentSensor batteryBankCurrent(PMSTR("Bank Current"));
 PowerSensor batteryBankPower(PMSTR("Battery Bank Power"), &batteryBankVoltage, &batteryBankCurrent);
 vector<Sensor*> chargerGrpSensors { &charger1Temp, &charger2Temp };
 CompositeSensor chargerGroupTemp(PMSTR("Chargers Temp"), chargerGrpSensors, Sensor::maximum);
+//vector<Sensor*> enclosureGrpSensors { &enclosureTempDht, &enclosureTemp };
+//CompositeSensor enclosureGroupTemp(PMSTR("Enclosure Temp"), enclosureGrpSensors, Sensor::maximum);
+vector<Sensor*> inverterGrpSensors { &enclosureTemp, &inverterTemp };
+CompositeSensor inverterGroupTemp(PMSTR("Inverter and Enclosure Temp"), inverterGrpSensors, Sensor::maximum);
 
 arduino::CoolingFan exhaustFan(PMSTR("Enclosure Fan"), 22, enclosureTemp, 95, 90, LOW);
 arduino::CoolingFan chargerGroupFan(PMSTR("Chargers Fan"), 23, chargerGroupTemp, 110, 105, LOW);
-arduino::CoolingFan inverterFan(PMSTR("Inverter Fan"), 24, inverterTemp, 110, 105, LOW);
+arduino::CoolingFan inverterFan(PMSTR("Inverter Fan"), 24, inverterGroupTemp, 105, 100, LOW);
 
 struct MinBatteryBankVoltage : AtLeast<float, Sensor&> {
   MinBatteryBankVoltage(float volts) : AtLeast(volts, batteryBankVoltage) {
@@ -91,20 +95,21 @@ struct MinBatteryBankVoltage outletsMinDipSupplyVoltage(21.5);
 
 struct InverterSwitch : public arduino::PowerSwitch {
   BooleanConstraint defaultOff {false};
-  InverterSwitch() : arduino::PowerSwitch(PMSTR("Inverter Switch"), 25, LOW) {
+  InverterSwitch() : arduino::PowerSwitch(PMSTR("Inverter Disconnect"), 25, LOW) {
+    defaultOff.mode = Constraint::REMOTE_MODE;
     setConstraint(&defaultOff);
   }
   RTTI_GET_TYPE_IMPL(main, InverterSwitch)
 } inverterSwitch;
 
-struct BatteryBankSwitch : public arduino::PowerSwitch {
+/*struct BatteryBankSwitch : public arduino::PowerSwitch {
   BooleanConstraint defaultOff {false};
   BatteryBankSwitch(const char* title, int pin) : arduino::PowerSwitch(title, pin, LOW) {
     setConstraint(&defaultOff);
   }
   RTTI_GET_TYPE_IMPL(main, BatteryBankSwitch)
 } batteryBankASwitch(PMSTR("Bank A Switch"), 26), batteryBankBSwitch("Bank B Switch", 27);
-
+*/
 struct OutletSwitch : public arduino::PowerSwitch {
   AndConstraint constraints { {&outletsMinSteadySupplyVoltage, &outletsMinDipSupplyVoltage} };
   OutletSwitch(const string& name, int pin, int onValue = HIGH) : arduino::PowerSwitch(name, pin, onValue) {
@@ -126,7 +131,7 @@ struct Outlet2Switch : public OutletSwitch {
 Devices devices {{
     &exhaustFan, &chargerGroupFan, &inverterFan,
     &inverterSwitch,
-    &batteryBankASwitch, &batteryBankBSwitch,
+    //&batteryBankASwitch, &batteryBankBSwitch,
     &outlet1Switch, &outlet2Switch
   }};
 
@@ -134,14 +139,13 @@ Sensors sensors {{
     &chargerGroupTemp,
     &batteryBankVoltage, &batteryBankCurrent, &batteryBankPower,
     &batteryBankAVoltage, &batteryBankBVoltage,
-    &atticTemp, &enclosureTemp,
-    &enclosureTempDht, &enclosureHumidityDht,
-    &charger1Temp, &charger2Temp, &inverterTemp, //&sunroomTemp,
+    &enclosureTemp, //&atticTemp, &enclosureGroupTemp,
+    //&enclosureTempDht, &enclosureHumidityDht,
+    &charger1Temp, &charger2Temp, &inverterTemp, &inverterGroupTemp, //&sunroomTemp,
     &exhaustFan.toggleSensor, &chargerGroupFan.toggleSensor,
     &inverterFan.toggleSensor, &inverterSwitch.toggleSensor,
-    &batteryBankASwitch.toggleSensor, &batteryBankBSwitch.toggleSensor,
-    &outlet1Switch.toggleSensor, &outlet2Switch.toggleSensor,
-    &lightLevel
+    //&batteryBankASwitch.toggleSensor, &batteryBankBSwitch.toggleSensor,
+    &outlet1Switch.toggleSensor, &outlet2Switch.toggleSensor//, &lightLevel
   }};
 
 void setup() {
@@ -191,7 +195,7 @@ void setup() {
 
 void loop() {
   static unsigned long lastUpdateTimeMs = 0, beginCmdReadTimeMs = 0;
-  static unsigned int updateIntervalMs = 10000;
+  static unsigned int updateIntervalMs = 15000;
   static size_t bytesRead = 0;
 
   bool msgSizeExceeded = false;
@@ -232,7 +236,7 @@ void loop() {
       }
     }
     
-    lastUpdateTimeMs = currentTimeMs;
+    lastUpdateTimeMs = millis();
   } else if ( beginCmdReadTimeMs > 0 && (currentTimeMs - beginCmdReadTimeMs) > updateIntervalMs ) {
     msgReadTimedOut = true;
   }
@@ -258,6 +262,9 @@ void loop() {
       writer.println("{");
       cmdProcessor.beginResp();
       writer + F("Serial data read timed out.  Bytes received: ") + bytesRead;
+      if ( bytesRead == 1 ) {
+        writer + F(". First byte: ") + ((int)commandBuff[0]);
+      }
       cmdProcessor.endResp(101);
       writer.println("}");
     }

@@ -62,7 +62,9 @@ public:
         } else {
           bool bNewOn = text::parseBool(pszVal);
           pConstraint->overrideTestResult(bNewOn);
-          setOn(bNewOn);
+          //cout << __PRETTY_FUNCTION__ << " Setting toggle value to " << bNewOn << endl;
+          toggle.setValue(bNewOn);
+          //cout << __PRETTY_FUNCTION__ << " Set toggle complete." << endl;
           rtn = SetCode::OK;        
         }
       }

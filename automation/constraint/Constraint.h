@@ -81,12 +81,51 @@ namespace automation {
 
     virtual ~Constraint() {
       all().erase(this);
+      if ( pRemoteExpiredOp != &defaultRemoteExpiredOp ) {
+        delete pRemoteExpiredOp;
+      }
     }
 
     virtual bool checkValue() = 0;
     virtual string getTitle() const { return getType(); }
     virtual bool isSynchronizable() const { return true; }
     virtual bool test();
+    
+    struct RemoteExpiredOp {
+      
+      virtual bool test() { 
+        // use global expiration based on last time a remote command was processed
+        return automation::client::watchdog::isKeepAliveExpired(); 
+      }
+
+      virtual void reset(){} // place to track when a remote event occured
+    };
+
+    static RemoteExpiredOp defaultRemoteExpiredOp;
+
+    struct RemoteExpiredDelayOp : public RemoteExpiredOp {
+      unsigned long delayMs;
+      unsigned long attributeSetTimeMs; // each constraints remote status will expire individualy after a delay
+
+      RemoteExpiredDelayOp( unsigned long delayMs ) : delayMs(delayMs), attributeSetTimeMs(0) {}
+      
+      bool test() override {
+        return automation::millisecs() - attributeSetTimeMs > delayMs;
+      }
+
+      void reset() override {
+        attributeSetTimeMs = automation::millisecs();
+      }
+    };
+    
+    RemoteExpiredOp* pRemoteExpiredOp {&defaultRemoteExpiredOp};
+    
+    void setRemoteExpiredOp(RemoteExpiredOp* pOp) {
+      if ( pRemoteExpiredOp && pRemoteExpiredOp != &defaultRemoteExpiredOp ) {
+        delete pRemoteExpiredOp;  // workaround for arduinostl not having unique_ptr
+      }
+      pRemoteExpiredOp = pOp;
+    }
 
     SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override;
 

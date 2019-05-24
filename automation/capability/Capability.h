@@ -86,6 +86,17 @@ namespace automation {
       virtual void valueSet(const Capability* pCapability, float newVal, float oldVal) = 0;
     };
 
+    struct CapabilityListenerFn : CapabilityListener {
+      void (*implFn)(const Capability* pCapability, float newVal, float oldVal);
+
+      CapabilityListenerFn( void (*implFn)(const Capability* pCapability, float newVal, float oldVal) ) : implFn(implFn) {
+
+      }
+      void valueSet(const Capability* pCapability, float newVal, float oldVal) override { 
+        implFn(pCapability,newVal,oldVal);
+      }
+    };
+
     vector<CapabilityListener*> listeners;
 
     virtual void addListener(CapabilityListener* pListener){

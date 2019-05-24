@@ -262,10 +262,9 @@ class JsonStreamWriter
     return *this;
   }
 
-  template<typename TKey, typename TIterator>
-  JsonStreamWriter& printIteratorObj(TKey k, TIterator itr, TIterator endItr, 
+  template<typename TIterator>
+  JsonStreamWriter& printIterator(TIterator itr, TIterator endItr, 
       const char* suffix = "", bool bVerbose = false ) {
-    printKey(k);
     noPrefixPrint("[");
     increaseDepth();
 
@@ -290,11 +289,23 @@ class JsonStreamWriter
   }
 
   template<typename TKey, typename TIterator>
+  JsonStreamWriter& printIteratorObj(TKey k, TIterator itr, TIterator endItr, 
+      const char* suffix = "", bool bVerbose = false ) {
+    printKey(k);
+    return printIterator(itr,endItr,suffix,bVerbose);
+  }
+
+  template<typename TKey, typename TIterator>
   JsonStreamWriter& printlnIteratorObj(TKey k, TIterator itr, TIterator endItr, 
     const char* suffix = "", bool bVerbose = false ) {
     printIteratorObj(k,itr,endItr,suffix,bVerbose);
     println();
     return *this;
+  }
+
+  template<typename TArray>
+  JsonStreamWriter& printVector( TArray arr, const char* suffix = "", bool bVerbose = false ) {
+    return printIterator(arr.begin(),arr.end(),suffix,bVerbose);
   }
 
   template<typename TKey, typename TArray>

@@ -42,7 +42,11 @@ namespace automation {
       w.printlnStringObj(F("type"), getType(), ",");
       printVerboseExtra(w);
     }
-    w.printlnNumberObj(F("value"), value);
+    if ( isnan(value) ) {
+      w.printlnStringObj(F("value"), value); // C++ POCO JsonParser is strict on JSON format (no nan or infinity)
+    } else {
+      w.printlnNumberObj(F("value"), value);
+    }  
     w.decreaseDepth();
     w.print("}");
   }

@@ -10,6 +10,14 @@ using namespace std;
 
 namespace automation {
 
+  
+  template<typename ValueT> 
+  struct ValueValidator {
+    virtual bool isValid(const ValueT &val) const { return true; }
+    virtual bool getPassOnInvalid() const { return false; }
+  };
+  
+
   template<typename ValueT, typename ValueSourceT>
   class ValueConstraint : public Constraint {
 
@@ -17,10 +25,15 @@ namespace automation {
     ValueConstraint(ValueSourceT& valueSource) : valueSource(valueSource) {
     }
 
+    ValueValidator<ValueT>* pValueValidator{ nullptr };
+
     bool checkValue() override {
       const ValueT &value = getValue();
-      bool bCheckPassed = checkValue(value);
-      return bCheckPassed;
+      if ( pValueValidator && !pValueValidator->isValid(value) ) {
+        return pValueValidator->getPassOnInvalid();
+      } else {
+        return checkValue(value);
+      }
     }
 
     virtual ValueT getValue() {
@@ -172,17 +185,20 @@ namespace automation {
       }
     }
 
+    void setFixedThreshold(ValueT threshold) {
+        if (bDeleteThreshold) {
+          delete pThreshold;
+        } 
+        bDeleteThreshold = true;
+        pThreshold = new ConstantValueHolder<ValueT>(threshold);
+    }
+
     SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override {
       SetCode rtn = ValueConstraint<ValueT,ValueSourceT>::setAttribute(pszKey,pszVal,pRespStream);
       string strResultValue;
       if ( rtn == SetCode::Ignored ) {
         if ( !strcasecmp_P(pszKey,PSTR("THRESHOLD")) ) {
-          ValueT val = atof(pszVal);
-          if (bDeleteThreshold) {
-            delete pThreshold;
-          } 
-          bDeleteThreshold = true;
-          pThreshold = new ConstantValueHolder<ValueT>(val);
+          setFixedThreshold(atof(pszVal));
           strResultValue = text::asString(pThreshold->getValue());
           rtn = SetCode::OK;
         }
@@ -212,7 +228,7 @@ namespace automation {
     }
 
     AtMost(ValueT threshold, ValueSourceT &valueSource)
-        : AtMost<ValueT,ValueSourceT>(new ConstantValueHolder<ValueT>(threshold),valueSource) {
+        : ThresholdValueConstraint<ValueT,ValueSourceT>(new ConstantValueHolder<ValueT>(threshold),valueSource) {
     }
 
     bool checkValue(const ValueT &value) override {

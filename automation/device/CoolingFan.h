@@ -11,16 +11,25 @@ namespace automation {
 
   class CoolingFan: public PowerSwitch {
 
+  struct FanTempValidator : public ValueValidator<float> {
+    bool isValid(const float &val) const override { 
+      return !isnan(val) && val > 0; // thermistors return zero on atmega when too many gpio simultaneous reads/writes (florida never has 0 degrees F), DHT error is NaN
+    }
+    bool getPassOnInvalid() const override { return true; } // want fan on if don't know temperature due to error
+  };
+
   public:
 
     Sensor& tempSensor;
     AtLeast<float,Sensor&> minTemp; // any temp greater than this min will PASS (turn fan on)
+    FanTempValidator fanTempValidator;
 
     CoolingFan(const string &name, Sensor& tempSensor, float onTemp, float offTemp, unsigned int minDurationMs=0) :
         PowerSwitch(name),
         tempSensor(tempSensor),
         minTemp(onTemp,tempSensor) {
       minTemp.setFailMargin(onTemp-offTemp).setFailDelayMs(minDurationMs);
+      minTemp.pValueValidator = &fanTempValidator;
       pConstraint = &minTemp;
     }
 
