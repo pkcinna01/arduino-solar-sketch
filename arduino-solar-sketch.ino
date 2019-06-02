@@ -1,6 +1,6 @@
 #define ARDUINO_APP
 #define VERSION "SOLAR-1.45"
-#define BUILD_NUMBER 2
+#define BUILD_NUMBER 3
 #define BUILD_DATE __DATE__
 
 #include <EEPROM.h>
@@ -59,15 +59,15 @@ static char commandBuff[commandBuffSize+1];
 ThermistorSensor charger1Temp(PMSTR("Charger 1 Temp"), 0),
                  charger2Temp(PMSTR("Charger 2 Temp"), 1),
                  //sunroomTemp(PMSTR("Sunroom Temp"), 2),
-                 //atticTemp(PMSTR("Attic Temp"), 3),
+                 enclosureTemp(PMSTR("Enclosure Temp (thermistor)"), 3), 
+                 //atticTemp(PMSTR("Attic Temp"), 6),
                  inverterTemp(PMSTR("Inverter Temp"), 4);
 
 //LightSensor lightLevel(PMSTR("Sunshine"), 5);
 
 Dht dht(5);
-//DhtTempSensor enclosureTempDht(PMSTR("Enclosure Temp (DHT)"), dht); // not enough power to have DHT running and all relays
-ThermistorSensor enclosureTemp(PMSTR("Enclosure Temp"), 6);
-//DhtHumiditySensor enclosureHumidityDht(PMSTR("Enclosure Humidity"), dht);
+DhtTempSensor enclosureTempDht(PMSTR("Enclosure Temp (DHT)"), dht); // not enough power to have DHT running and all relays
+DhtHumiditySensor enclosureHumidityDht(PMSTR("Enclosure Humidity"), dht);
 VoltageSensor batteryBankVoltage(PMSTR("Battery Bank Voltage"), 9, 1016000, 101100);
 VoltageSensor batteryBankBVoltage(PMSTR("Bank B Voltage"), 10, 1016000, 101100);
 vector<Sensor*> mainAndBankBDelta { &batteryBankVoltage, &batteryBankBVoltage };
@@ -76,14 +76,14 @@ CurrentSensor batteryBankCurrent(PMSTR("Bank Current"));
 PowerSensor batteryBankPower(PMSTR("Battery Bank Power"), &batteryBankVoltage, &batteryBankCurrent);
 vector<Sensor*> chargerGrpSensors { &charger1Temp, &charger2Temp };
 CompositeSensor chargerGroupTemp(PMSTR("Chargers Temp"), chargerGrpSensors, Sensor::maximum);
-//vector<Sensor*> enclosureGrpSensors { &enclosureTempDht, &enclosureTemp };
-//CompositeSensor enclosureGroupTemp(PMSTR("Enclosure Temp"), enclosureGrpSensors, Sensor::maximum);
+vector<Sensor*> enclosureGrpSensors { &enclosureTempDht, &enclosureTemp };
+CompositeSensor enclosureGroupTemp(PMSTR("Enclosure Temp"), enclosureGrpSensors, Sensor::maximum);
 vector<Sensor*> inverterGrpSensors { &enclosureTemp, &inverterTemp };
 CompositeSensor inverterGroupTemp(PMSTR("Inverter and Enclosure Temp"), inverterGrpSensors, Sensor::maximum);
 
-arduino::CoolingFan exhaustFan(PMSTR("Enclosure Fan"), 22, enclosureTemp, 95, 90, LOW);
+arduino::CoolingFan exhaustFan(PMSTR("Enclosure Fan"), 22, enclosureGroupTemp, 98, 95, LOW);
 arduino::CoolingFan chargerGroupFan(PMSTR("Chargers Fan"), 23, chargerGroupTemp, 110, 105, LOW);
-arduino::CoolingFan inverterFan(PMSTR("Inverter Fan"), 24, inverterGroupTemp, 105, 100, LOW);
+arduino::CoolingFan inverterFan(PMSTR("Inverter Fan"), 24, inverterGroupTemp, 103, 100, LOW);
 
 struct MinBatteryBankVoltage : AtLeast<float, Sensor&> {
   MinBatteryBankVoltage(float volts) : AtLeast(volts, batteryBankVoltage) {
@@ -139,8 +139,8 @@ Sensors sensors {{
     &chargerGroupTemp,
     &batteryBankVoltage, &batteryBankCurrent, &batteryBankPower,
     &batteryBankAVoltage, &batteryBankBVoltage,
-    &enclosureTemp, //&atticTemp, &enclosureGroupTemp,
-    //&enclosureTempDht, &enclosureHumidityDht,
+    &enclosureTemp, &enclosureGroupTemp, //&atticTemp, 
+    &enclosureTempDht, &enclosureHumidityDht,
     &charger1Temp, &charger2Temp, &inverterTemp, &inverterGroupTemp, //&sunroomTemp,
     &exhaustFan.toggleSensor, &chargerGroupFan.toggleSensor,
     &inverterFan.toggleSensor, &inverterSwitch.toggleSensor,

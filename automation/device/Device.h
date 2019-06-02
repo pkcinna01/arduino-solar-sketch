@@ -15,32 +15,41 @@ namespace automation {
 
   class Capability;
 
-  class Device : public NamedContainer {
+  class Device : public NamedContainer, public ConstraintEventHandler {
   public:
 
-    Constraint *pConstraint = nullptr;
     vector<Capability *> capabilities;
     mutable bool bError;
 
     Device(const string &name) :
-        NamedContainer(name), pConstraint(nullptr), bError(false) {
+        NamedContainer(name), bError(false) {
       assignId(this);
+    }
+
+    virtual ~Device() {
+      if ( pConstraint ) {
+        pConstraint->listeners.remove(this);
+      }
     }
 
     RTTI_GET_TYPE_DECL;
     
     virtual void applyConstraint(bool bIgnoreSameState = true, Constraint *pConstraint = nullptr);
 
-    virtual void constraintResultChanged(bool bConstraintResult) = 0;
+    //virtual void constraintResultChanged(bool bConstraintResult) = 0;
 
     virtual void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const override;
 
-    virtual Constraint* getConstraint() {
+    virtual Constraint* getConstraint() const {
       return pConstraint;
     }
 
     virtual void setConstraint(Constraint* pConstraint) {
+      if ( pConstraint ) {
+        pConstraint->listeners.remove(this);
+      }
       this->pConstraint = pConstraint;
+      this->pConstraint->listeners.add(this);
     }
 
     bool isPassed() {
@@ -57,6 +66,9 @@ namespace automation {
 
   protected:
     bool bInitialized = false;
+
+  private:
+    Constraint *pConstraint = nullptr;
 
   };
 

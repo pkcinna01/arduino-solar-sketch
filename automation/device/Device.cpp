@@ -6,6 +6,7 @@
 namespace automation {
 
 void Device::applyConstraint(bool bIgnoreSameState, Constraint *pConstraint) {
+  
   if ( !pConstraint ) {
     pConstraint = this->pConstraint;
   }
@@ -15,9 +16,9 @@ void Device::applyConstraint(bool bIgnoreSameState, Constraint *pConstraint) {
     }
     bool bLastPassed = pConstraint->isPassed();
     bool bPassed = pConstraint->test();
-    if (!bIgnoreSameState || bPassed != bLastPassed ) {
-      constraintResultChanged(bPassed);
-    }
+    //if (!bIgnoreSameState || bPassed != bLastPassed ) {
+    //  constraintResultChanged(bPassed);
+    //}
   }
 }
 
@@ -26,11 +27,11 @@ void Device::applyConstraint(bool bIgnoreSameState, Constraint *pConstraint) {
 SetCode Device::setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream) {
   SetCode rtn = NamedContainer::setAttribute(pszKey,pszVal,pRespStream);
   if ( rtn == SetCode::Ignored ) {
-    if ( pConstraint && !strncasecmp_P(pszKey,PSTR("CONSTRAINT/"),CONSTRAINT_PREFIX_SIZE) ) {
+    if ( pConstraint && !strncasecmp_P(pszKey,PSTR("CONSTRAINT."),CONSTRAINT_PREFIX_SIZE) ) {
       const char* pszConstraintKey = &pszKey[CONSTRAINT_PREFIX_SIZE];
       rtn = pConstraint->setAttribute(pszConstraintKey,pszVal,pRespStream);
       applyConstraint();
-    } else if ( !strncasecmp_P(pszKey,PSTR("CAPABILITY/"),CAPABILITY_PREFIX_SIZE) ) {
+    } else if ( !strncasecmp_P(pszKey,PSTR("CAPABILITY."),CAPABILITY_PREFIX_SIZE) ) {
       const char* pszTypePattern = &pszKey[CAPABILITY_PREFIX_SIZE];
       for (auto cap : capabilities) {
         if (text::WildcardMatcher::test(pszTypePattern,cap->getType().c_str())) {

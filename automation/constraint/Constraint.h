@@ -4,6 +4,7 @@
 #include "../Automation.h"
 #include "../json/JsonStreamWriter.h"
 #include "../AttributeContainer.h"
+#include "ConstraintEventHandler.h"
 
 #include <string>
 #include <iostream>
@@ -67,6 +68,8 @@ namespace automation {
     }    
 
     Mode mode = TEST_MODE;
+
+    bool bEnabled = true;
     
     Constraint() {
       assignId(this);
@@ -99,6 +102,15 @@ namespace automation {
       }
 
       virtual void reset(){} // place to track when a remote event occured
+
+      virtual void print(json::JsonStreamWriter& w) {
+        w.noPrefixPrintln("{");
+        w.increaseDepth();
+        w.printlnStringObj(F("type"), F("auto"),",");
+        w.printlnBoolObj(F("expired"), test());
+        w.decreaseDepth();
+        w.print("}");
+      }
     };
 
     static RemoteExpiredOp defaultRemoteExpiredOp;
@@ -115,6 +127,17 @@ namespace automation {
 
       void reset() override {
         attributeSetTimeMs = automation::millisecs();
+      }
+
+      virtual void print(json::JsonStreamWriter& w) override {
+        w.noPrefixPrintln("{");
+        w.increaseDepth();
+        w.printlnStringObj(F("type"), F("delay"),",");
+        w.printlnNumberObj(F("delayMs"), delayMs, ",");
+        w.printlnStringObj(F("elapsedMs"), automation::millisecs() - attributeSetTimeMs, ",");
+        w.printlnBoolObj(F("expired"), test());
+        w.decreaseDepth();
+        w.print("}");
       }
     };
     
@@ -175,6 +198,8 @@ namespace automation {
     bool isRemoteCompatible() {
       return (mode&REMOTE_MODE) > 0;
     }
+
+    ConstraintEventHandlerList listeners;
 
     protected:
 

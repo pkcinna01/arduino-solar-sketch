@@ -17,7 +17,7 @@ class PowerSwitch : public Device
 public:
   float requiredWatts;
 
-  struct PowerSwitchToggle : automation::Toggle
+  mutable struct PowerSwitchToggle : automation::Toggle
   {
     PowerSwitchToggle(PowerSwitch *pPowerSwitch) : Toggle(pPowerSwitch), pPowerSwitch(pPowerSwitch){};
     PowerSwitch *pPowerSwitch;
@@ -44,16 +44,17 @@ public:
   virtual bool isOn() const = 0;
   virtual void setOn(bool bOn) = 0;
 
-  virtual void constraintResultChanged(bool bConstraintResult)
-  {
-    //cout << __PRETTY_FUNCTION__ << " bConstraintResult: " << bConstraintResult << endl;
-    toggle.setValue(bConstraintResult);
+  //virtual void constraintResultChanged(bool bConstraintResult)
+  virtual void resultChanged(Constraint* pConstraint,bool bNew,unsigned long lastDurationMs) const override {
+    //cout << __PRETTY_FUNCTION__ << "'" << name << "' passed: " << bNew << endl;
+    toggle.setValue(bNew);
   }
 
   virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override {
     SetCode rtn = Device::setAttribute(pszKey,pszVal,pRespStream);
     if ( rtn == SetCode::Ignored ) {
       if ( !strcasecmp_P(pszKey,PSTR("ON")) ) {
+        Constraint* pConstraint = getConstraint();
         if ( pConstraint && !pConstraint->isRemoteCompatible() ) {
           if ( pRespStream ) {
             *pRespStream << RVSTR("Constraint mode not remote compatible: ") << Constraint::modeToString(pConstraint->mode);

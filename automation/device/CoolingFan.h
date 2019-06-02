@@ -30,7 +30,7 @@ namespace automation {
         minTemp(onTemp,tempSensor) {
       minTemp.setFailMargin(onTemp-offTemp).setFailDelayMs(minDurationMs);
       minTemp.pValueValidator = &fanTempValidator;
-      pConstraint = &minTemp;
+      setConstraint(&minTemp);
     }
 
     virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream) override {

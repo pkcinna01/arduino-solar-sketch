@@ -23,7 +23,7 @@ namespace arduino {
     void setup() override {
       if ( !bInitialized ) {
         pinMode(relayPin, OUTPUT);
-        setOn(false); 
+        setOn(false);
         bInitialized = true;
       }
     }

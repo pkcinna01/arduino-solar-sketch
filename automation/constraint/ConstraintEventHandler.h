@@ -1,7 +1,7 @@
 #ifndef AUTOMATION_CONSTRAINT_EVENT_HANDLER_H
 #define AUTOMATION_CONSTRAINT_EVENT_HANDLER_H
 
-#include "Constraint.h"
+//#include "Constraint.h"
 
 namespace automation { 
     
@@ -9,10 +9,10 @@ namespace automation {
 
   class ConstraintEventHandler {
     public:
-    virtual void resultDeferred(Constraint* pConstraint,bool bNew,unsigned long delayMs) const = 0;
+    virtual void resultDeferred(Constraint* pConstraint,bool bNew,unsigned long delayMs) const {};
     virtual void resultChanged(Constraint* pConstraint,bool bNew,unsigned long lastDurationMs) const = 0;
     virtual void resultSame(Constraint* pConstraint,bool bVal,unsigned long lastDurationMs) const {};
-    virtual void deferralCancelled(Constraint* pConstraint,bool bNew,unsigned long lastDurationMs) const = 0;
+    virtual void deferralCancelled(Constraint* pConstraint,bool bNew,unsigned long lastDurationMs) const {};
   };
   
   class ConstraintEventHandlerList : public ConstraintEventHandler, public std::vector<ConstraintEventHandler*> {
@@ -28,6 +28,12 @@ namespace automation {
     }
     void deferralCancelled(Constraint* pConstraint,bool bNew,unsigned long lastDurationMs) const override {
       for( auto handler : *this ) handler->deferralCancelled(pConstraint,bNew,lastDurationMs);
+    }
+    void add(ConstraintEventHandler* pHandler){
+      push_back(pHandler);
+    }
+    void remove(ConstraintEventHandler* pHandler){
+      this->erase(std::remove(begin(), end(), pHandler), end());
     }
     static ConstraintEventHandlerList instance;
   };
