@@ -185,7 +185,7 @@ namespace automation {
 
     bool overrideTestResult(bool bNewResult) {
       resetDeferredTime();
-      if ( bNewResult != bPassed ) {
+      if ( bNewResult != isPassed() ) {
         setPassed(bNewResult);
       }
       return bPassed;

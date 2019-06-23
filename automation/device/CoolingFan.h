@@ -11,9 +11,11 @@ namespace automation {
 
   class CoolingFan: public PowerSwitch {
 
+  // Validator to turn on fan when temp looks suspect for N Florida.
   struct FanTempValidator : public ValueValidator<float> {
     bool isValid(const float &val) const override { 
-      return !isnan(val) && val > 0; // thermistors return zero on atmega when too many gpio simultaneous reads/writes (florida never has 0 degrees F), DHT error is NaN
+      // Temp sensors may return NAN (DHT), 0, or negative value if they go bad or there is an open circuit.      
+      return !isnan(val) && val > 0; 
     }
     bool getPassOnInvalid() const override { return true; } // want fan on if don't know temperature due to error
   };

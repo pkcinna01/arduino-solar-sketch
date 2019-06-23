@@ -16,13 +16,16 @@ namespace automation {
     if ( mode != TEST_MODE ) {
       if (mode&REMOTE_MODE) {
         if ( pRemoteExpiredOp->test() ) {
-          // process locally
+          // process locally because remote setting has expired
           resolvedMode = mode-REMOTE_MODE;
-          if ( resolvedMode == INVALID_MODE ) {
-            // leave old result on lost master connection
+          if ( resolvedMode == 0 ) {
+            // just return old result if REMOTE with no qualifiers
+            checkValue(); // composite and nested constraints need checkValue call for deferred state tracking
             return bPassed;
           }
-        } else {
+        } else {            
+          // honor value set remotely but call checkValue to update transition and delay states
+          checkValue(); // composite and nested constraints need checkValue call for deferred state tracking
           return bPassed;
         }
       }

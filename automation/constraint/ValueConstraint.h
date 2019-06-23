@@ -48,7 +48,12 @@ namespace automation {
       w.increaseDepth();
       w.printlnNumberObj(F("id"),(int)this->valueSource.id,",");
       w.printlnStringObj(F("type"),this->valueSource.getType().c_str(),",");
-      w.printlnNumberObj(F("value"),this->valueSource.getValue());
+      double val = this->valueSource.getValue();
+      if ( isnan(val) ) {
+        w.printlnStringObj(F("value"),val); // C++/POCO strict on numeric values (no nan support)
+      } else {
+        w.printlnNumberObj(F("value"),val);
+      }
       w.decreaseDepth();
       w.print("}");
       w.print(pszSeparator);

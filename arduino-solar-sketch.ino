@@ -1,6 +1,6 @@
 #define ARDUINO_APP
-#define VERSION "SOLAR-1.45"
-#define BUILD_NUMBER 3
+#define VERSION "SOLAR-1.47"
+#define BUILD_NUMBER 2
 #define BUILD_DATE __DATE__
 
 #include <EEPROM.h>
@@ -66,7 +66,7 @@ ThermistorSensor charger1Temp(PMSTR("Charger 1 Temp"), 0),
 //LightSensor lightLevel(PMSTR("Sunshine"), 5);
 
 Dht dht(5);
-DhtTempSensor enclosureTempDht(PMSTR("Enclosure Temp (DHT)"), dht); // not enough power to have DHT running and all relays
+DhtTempSensor enclosureTempDht(PMSTR("Enclosure Temp (DHT)"), dht);
 DhtHumiditySensor enclosureHumidityDht(PMSTR("Enclosure Humidity"), dht);
 VoltageSensor batteryBankVoltage(PMSTR("Battery Bank Voltage"), 9, 1016000, 101100);
 VoltageSensor batteryBankBVoltage(PMSTR("Bank B Voltage"), 10, 1016000, 101100);
@@ -81,7 +81,7 @@ CompositeSensor enclosureGroupTemp(PMSTR("Enclosure Temp"), enclosureGrpSensors,
 vector<Sensor*> inverterGrpSensors { &enclosureTemp, &inverterTemp };
 CompositeSensor inverterGroupTemp(PMSTR("Inverter and Enclosure Temp"), inverterGrpSensors, Sensor::maximum);
 
-arduino::CoolingFan exhaustFan(PMSTR("Enclosure Fan"), 22, enclosureGroupTemp, 98, 95, LOW);
+arduino::CoolingFan enclosureFan(PMSTR("Enclosure Fan"), 22, enclosureGroupTemp, 98, 95, LOW);
 arduino::CoolingFan chargerGroupFan(PMSTR("Chargers Fan"), 23, chargerGroupTemp, 110, 105, LOW);
 arduino::CoolingFan inverterFan(PMSTR("Inverter Fan"), 24, inverterGroupTemp, 103, 100, LOW);
 
@@ -94,13 +94,22 @@ struct MinBatteryBankVoltage outletsMinSteadySupplyVoltage(23);
 struct MinBatteryBankVoltage outletsMinDipSupplyVoltage(21.5);
 
 struct InverterSwitch : public arduino::PowerSwitch {
-  BooleanConstraint defaultOff {false};
-  InverterSwitch() : arduino::PowerSwitch(PMSTR("Inverter Disconnect"), 25, LOW) {
-    defaultOff.mode = Constraint::REMOTE_MODE;
-    setConstraint(&defaultOff);
+  
+  InverterSwitch() : arduino::PowerSwitch(PMSTR("Inverter Power"), 25, HIGH) { // LOW enabled RELAY wired to normally closed
   }
+  
+  void setup() override; //NOTE: Arduino IDE 1.8.7 or ARM G++ compiler gets confused about inline overrides
+  
   RTTI_GET_TYPE_IMPL(main, InverterSwitch)
 } inverterSwitch;
+
+void InverterSwitch::setup() {
+  if ( !bInitialized ) {
+    pinMode(relayPin, OUTPUT);
+    setOn(true);
+    bInitialized = true;
+  }
+}
 
 /*struct BatteryBankSwitch : public arduino::PowerSwitch {
   BooleanConstraint defaultOff {false};
@@ -112,12 +121,20 @@ struct InverterSwitch : public arduino::PowerSwitch {
 */
 struct OutletSwitch : public arduino::PowerSwitch {
   AndConstraint constraints { {&outletsMinSteadySupplyVoltage, &outletsMinDipSupplyVoltage} };
-  OutletSwitch(const string& name, int pin, int onValue = HIGH) : arduino::PowerSwitch(name, pin, onValue) {
+  OutletSwitch(const string& name, int pin, int onValue = LOW) : arduino::PowerSwitch(name, pin, onValue) {
     setConstraint(&constraints);
-    outletsMinDipSupplyVoltage.setPassDelayMs(5ul * MINUTES).setFailDelayMs(15 * SECONDS).setPassMargin(2);
+    outletsMinDipSupplyVoltage.setPassDelayMs(5ul * MINUTES).setFailDelayMs(5 * SECONDS).setPassMargin(2);
     outletsMinSteadySupplyVoltage.setPassDelayMs(15ul * MINUTES).setFailDelayMs(1 * MINUTES).setPassMargin(2);
   }
+  void setup() override;
 };
+void OutletSwitch::setup() { //default setup turns switch off
+  if ( !bInitialized ) {
+    pinMode(relayPin, OUTPUT);
+    setOn(true);
+    bInitialized = true;
+  }
+}
 
 struct Outlet1Switch : public OutletSwitch {
   Outlet1Switch() : OutletSwitch(PMSTR("Outlet 1"), 30) {}
@@ -129,7 +146,7 @@ struct Outlet2Switch : public OutletSwitch {
 
 
 Devices devices {{
-    &exhaustFan, &chargerGroupFan, &inverterFan,
+    &enclosureFan, &chargerGroupFan, &inverterFan,
     &inverterSwitch,
     //&batteryBankASwitch, &batteryBankBSwitch,
     &outlet1Switch, &outlet2Switch
@@ -142,7 +159,7 @@ Sensors sensors {{
     &enclosureTemp, &enclosureGroupTemp, //&atticTemp, 
     &enclosureTempDht, &enclosureHumidityDht,
     &charger1Temp, &charger2Temp, &inverterTemp, &inverterGroupTemp, //&sunroomTemp,
-    &exhaustFan.toggleSensor, &chargerGroupFan.toggleSensor,
+    &enclosureFan.toggleSensor, &chargerGroupFan.toggleSensor,
     &inverterFan.toggleSensor, &inverterSwitch.toggleSensor,
     //&batteryBankASwitch.toggleSensor, &batteryBankBSwitch.toggleSensor,
     &outlet1Switch.toggleSensor, &outlet2Switch.toggleSensor//, &lightLevel
@@ -150,10 +167,14 @@ Sensors sensors {{
 
 void setup() {
 
-  unsigned long serialSpeed = 38400;
-  //unsigned long serialSpeed = 57600;
-  //unsigned int serialConfig = SERIAL_8O1;
-  unsigned int serialConfig = SERIAL_8N1;
+  //unsigned long serialSpeed = 38400;
+  unsigned long serialSpeed = 57600;
+  unsigned int serialConfig = SERIAL_8O1;
+  //unsigned int serialConfig = SERIAL_8N1;
+
+  enclosureFan.minTemp.setFailDelayMs(5*MINUTES);
+  inverterFan.minTemp.setFailDelayMs(3*MINUTES);
+  //chargerGroupFan.minTemp.setFailDelayMs(5*MINUTES);
   
   String version;
   eeprom.getVersion(version);

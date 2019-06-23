@@ -52,9 +52,11 @@ void Device::print(json::JsonStreamWriter& w, bool bVerbose, bool bIncludePrefix
   w.printlnStringObj(F("name"),name,",");
   w.printlnNumberObj(F("id"), (unsigned long) id, ",");
   if ( bVerbose ) {
+    if ( pConstraint ) {
     w.printKey(F("constraint"));
-    pConstraint->print(w,bVerbose,json::PrefixOff);
-    w.noPrefixPrintln(",");
+      pConstraint->print(w,bVerbose,json::PrefixOff);
+      w.noPrefixPrintln(",");
+    }
     w.printlnVectorObj(F("capabilities"), capabilities,",", bVerbose);
     printVerboseExtra(w);
   }    

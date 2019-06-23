@@ -25,7 +25,8 @@ namespace automation {
 
     string getTitle() const override {
       string title = pToggle->getTitle();
-      title += (bAcceptState ? " ON" : " OFF");
+      title += "==";
+      title += (bAcceptState ? "ON" : "OFF");
       return title;
     }
   };
