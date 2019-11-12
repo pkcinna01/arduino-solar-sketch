@@ -91,7 +91,6 @@ namespace automation {
 
     virtual bool checkValue() = 0;
     virtual string getTitle() const { return getType(); }
-    virtual bool isSynchronizable() const { return true; }
     virtual bool test();
     
     struct RemoteExpiredOp {
@@ -179,12 +178,26 @@ namespace automation {
     unsigned long getDeferredRemainingMs() const { return max(0UL,(bPassed?failDelayMs:passDelayMs) - deferredDuration()); }
     bool isDeferred() const { return deferredResultCnt > 0; }
 
-    void resetDeferredTime() {
+    Constraint* findChildById(unsigned int id) const {
+      for ( auto pChild : children ) {
+        if ( pChild->id == id ) {
+          return pChild;
+        }
+      }
+      return nullptr;
+    }
+
+    void resetDeferredDuration() {
       deferredTimeMs = 0;
+      deferredResultCnt = 0;
+      for ( auto pChild : children ) {
+        pChild->resetDeferredDuration();
+      }
     }
 
     bool overrideTestResult(bool bNewResult) {
-      resetDeferredTime();
+      deferredTimeMs = automation::millisecs();
+      deferredResultCnt = 0;
       if ( bNewResult != isPassed() ) {
         setPassed(bNewResult);
       }

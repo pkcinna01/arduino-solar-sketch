@@ -40,6 +40,7 @@ namespace automation {
     w.printlnNumberObj(F("id"), (unsigned long) id, ",");
     if ( bVerbose ) {
       w.printlnStringObj(F("type"), getType(), ",");
+      w.printlnStringObj(F("title"), getTitle(), ",");  // usually same as name
       printVerboseExtra(w);
     }
     if ( isnan(value) ) {

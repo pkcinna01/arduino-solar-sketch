@@ -11,9 +11,6 @@ void Device::applyConstraint(bool bIgnoreSameState, Constraint *pConstraint) {
     pConstraint = this->pConstraint;
   }
   if (pConstraint) {
-    if ( automation::bSynchronizing && !pConstraint->isSynchronizable() ) {
-        return;
-    }
     bool bLastPassed = pConstraint->isPassed();
     bool bPassed = pConstraint->test();
     //if (!bIgnoreSameState || bPassed != bLastPassed ) {

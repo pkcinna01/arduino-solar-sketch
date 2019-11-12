@@ -45,8 +45,6 @@ namespace automation {
 
   static std::ostream& logBuffer = getLogBufferImpl();
 
-  static bool bSynchronizing = false;
-
   unsigned long millisecs();
 
   // TODO: review calls to 32 bit millisecs() and consider 64 bit version if rollover impacts computations

@@ -19,6 +19,14 @@ namespace automation {
         strJoinName(strJoinName) {
     }
 
+    const string& getJoinName() {
+      return strJoinName;
+    }
+
+    const vector<Constraint*>& getChildren() {
+      return children;
+    }
+
     string getTitle() const override {
       string title = "(";
       for (size_t i = 0; i < children.size(); i++) {

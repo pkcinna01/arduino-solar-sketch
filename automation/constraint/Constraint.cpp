@@ -51,7 +51,15 @@ namespace automation {
       }
       if ( bCheckPassed ) {
         if ( deferredDuration() >= passDelayMs ) {
-          setPassed(true);
+          // make sure constraint can pass without passMargin at moment of change.  This ensures all nested constraints can at least pass their base values.
+          // For example, if an AND constraint "haveEnoughPower" says "fullSoc" child is passing, it may only be passing because it has a long fail delay.
+          // By resetting deferred duration (includes children), we can make sure it still makes sense to pass... otherwise it could fail immediately because 
+          // the real fullSoc constraint value may be allowing a very low SOC value.
+          // This is a peculiarity with checkValue() on composite constraints because they call test() on children instead of checkValue()
+          resetDeferredDuration();
+          if ( checkValue() ) {
+            setPassed(true);
+          }
         } else {
           deferredResultCnt++;
         }

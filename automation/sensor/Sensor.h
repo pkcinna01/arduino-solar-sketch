@@ -9,6 +9,9 @@
 #include <vector>
 #include <algorithm>
 #include <math.h>
+#ifndef ARDUINO_APP
+#include <memory>
+#endif
 
 namespace automation {
 
@@ -22,14 +25,25 @@ namespace automation {
     }
   };
 
+  class Sensor;
+
+  class SensorListener {
+    public:
+    virtual void changed(const Sensor* pSensor, float newVal, float oldVal) const = 0;
+  };
+
   class Sensor : public ValueHolder<float>, public NamedContainer {
   public:    
     RTTI_GET_TYPE_DECL;
 
-    enum State { Undefined = 0, Initialized = 0x01, ValueCached = 0x02, NotSampleable = 0x04, NotCacheable = 0x08, Error = 0x0F };
+    enum State { Undefined = 0, Initialized = 0x01, NotExpired = 0x02, NotSampleable = 0x04, NotCacheable = 0x08, Error = 0x0F };
 
     uint16_t sampleCnt;
     uint16_t sampleIntervalMs;
+    
+    #ifndef ARDUINO_APP
+    std::unique_ptr<automation::SensorListener> pListener; // no space left for arduino to have listeners :-(
+    #endif
 
     Sensor(const std::string& name, uint16_t sampleCnt=1, uint16_t sampleIntervalMs=35) : 
       NamedContainer(name),  
@@ -46,11 +60,12 @@ namespace automation {
       setInitialized(true);
     }
 
-    virtual void reset()
+    virtual Sensor& reset()
     {
-      setValueCached(false);
+      setCacheExpired(true);
       setError(false);
-      cachedValue = 0;
+      //cachedValue = 0;
+      return *this;
     }
 
     void setInitialized(bool bInitialized) {
@@ -87,13 +102,27 @@ namespace automation {
 
     bool isInitialized() const { return (state & State::Initialized) > 0; }
     bool isError() const { return (state & State::Error) > 0; }
-    bool isValueCached() const { return (state & State::NotCacheable ) == 0 && (state & State::ValueCached) > 0; }
+    bool isCacheExpired() const { return (state & State::NotExpired) == 0; }
+    bool isCacheValid() const { return canCache() && !isCacheExpired(); }
+    bool canCache() const { return ( state & State::NotCacheable ) == 0 ; }
     bool canSample() const { return ( state & State::NotSampleable) == 0; }
 
     float getValue() const override {
-      if ( !isValueCached() ) {     
+
+      if ( !isCacheValid() ) {     
+
         float val = sample(this, &Sensor::getValueImpl, sampleCnt, sampleIntervalMs);
-        setCachedValue(val);        
+
+        if ( canCache() ) {
+          float old = cachedValue;
+          setCachedValue(val);        
+
+          #ifndef ARDUINO_APP
+          if ( old != val && pListener ) {
+            pListener->changed(this,val,old);
+          }
+          #endif
+        }
       }
       return cachedValue;
     }
@@ -102,7 +131,12 @@ namespace automation {
 
     virtual void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const override;
 
-    // Returns false if sample was not done because smapleIntervalMs not elapsed
+    // AVR chips dont have multi-threading but we can optimize sensor samplings by calling 
+    // doSingleSample on all sensors.  By the time all sensors are sampled it may be close to
+    // the time to do the next round of samples
+    //
+    // Returns false if sample was not done because sampleIntervalMs not elapsed
+    //
     bool doSingleSample(int sampleIndex, Timer& lastSampleTimer) {
       if ( sampleIndex <= 1 ) {
         reset();
@@ -154,18 +188,17 @@ namespace automation {
     mutable unsigned char state = State::Undefined; // mutable because cached state can change even on a getValue()
     mutable float cachedValue;
 
-    void setValueCached(bool bCached) const {
-      if ( bCached ) {
-        state |= State::ValueCached;
+    void setCacheExpired(bool bExpired) const {
+      if ( !bExpired ) {
+        state |= State::NotExpired;
       } else {
-        state = state & ~State::ValueCached;
-        cachedValue = 0;
+        state = state & ~State::NotExpired;
       }
     }
 
     void setCachedValue(float v) const {
       cachedValue = v;
-      setValueCached(true);
+      setCacheExpired(false);
     }
   };
 
@@ -179,7 +212,6 @@ namespace automation {
     SensorFn(const std::string& name, float (*getValueImplFn)())
         : Sensor(name), getValueImplFn(getValueImplFn)
     {
-      setCacheable(false);
     }
 
     virtual float getValueImpl() const override
@@ -223,6 +255,10 @@ namespace automation {
 
     SensorSampler(Sensor* s):pSensor(s), sampleIndex(1){}
 
+    void begin() {
+      pSensor->reset(); // invalidate cache
+    }
+
     bool doSingleSample() {
       if ( pSensor->doSingleSample(sampleIndex,lastSampleTimer) ) {
         sampleIndex++;
@@ -232,7 +268,7 @@ namespace automation {
     }
 
     bool isComplete() const {
-      return pSensor->isValueCached();// || sampleIndex >= pSensor->sampleCnt;
+      return pSensor->isCacheValid();
     }
   };
 

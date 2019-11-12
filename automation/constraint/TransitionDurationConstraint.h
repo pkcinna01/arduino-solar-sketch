@@ -19,11 +19,6 @@ class TransitionDurationConstraint : public Constraint {
       lastValue = isnan(defaultValue) ? originValue : defaultValue;
     }
 
-    // don't check for simultaneous events if doing a bulk synchronize of state
-    bool isSynchronizable() const override {
-      return false;
-    }
-
     bool checkValue() override {
       double value = pCapability->getValue();
       bool bValuePassedForDuration = true;

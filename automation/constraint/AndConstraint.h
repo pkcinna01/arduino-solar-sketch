@@ -16,9 +16,6 @@ namespace automation {
     bool checkValue() override {
       bool bResult = true;
       for (Constraint *pConstraint : children) {
-        if ( automation::bSynchronizing && !pConstraint->isSynchronizable() ) {
-          continue;
-        }
         if (!pConstraint->test()) {
           bResult = false;
           if ( bShortCircuit ) {

@@ -36,8 +36,6 @@ namespace automation {
     
     virtual void applyConstraint(bool bIgnoreSameState = true, Constraint *pConstraint = nullptr);
 
-    //virtual void constraintResultChanged(bool bConstraintResult) = 0;
-
     virtual void print(json::JsonStreamWriter& w, bool bVerbose=false, bool bIncludePrefix=true) const override;
 
     virtual Constraint* getConstraint() const {
@@ -64,6 +62,17 @@ namespace automation {
     
     virtual SetCode setAttribute(const char* pszKey, const char* pszVal, ostream* pRespStream = nullptr) override;
 
+    Constraint* findConstraint(unsigned int id) const { 
+      if ( !pConstraint ) {
+        return nullptr;
+      }
+      if ( pConstraint->id == id ) {
+        return pConstraint;
+      } else {
+        return pConstraint->findChildById(id);
+      }
+    }
+
   protected:
     bool bInitialized = false;
 
@@ -78,6 +87,14 @@ namespace automation {
     Devices(){}
     Devices( vector<Device*>& devices ) : AttributeContainerVector<Device*>(devices) {}
     Devices( vector<Device*> devices ) : AttributeContainerVector<Device*>(devices) {}
+    Device* findConstraintOwner(unsigned int id) const {
+      for ( auto pDevice : *this ) {
+        if ( pDevice->findConstraint(id) ) {
+          return pDevice; //TODO - some constraints may be owned by multiple devices so should this return a list?
+        }
+      }
+      return nullptr;
+    }
   };
 
 }

@@ -30,10 +30,6 @@ namespace automation {
       return title;
     }
 
-    bool isSynchronizable() const override {
-      return inner()->isSynchronizable();
-    }
-
   };
 
 }
